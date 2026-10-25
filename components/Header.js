@@ -26,11 +26,12 @@ const Header = ({ isShow }) => {
           viewport={{ once: true }}
         >
           <img
-            className="logo"
-            onClick={() => router.push("/")}
-            src="https://i.postimg.cc/W1PwRj4j/logo.png"
-            alt="Tiktok"
-          />
+  className="logo"
+  onClick={() => router.push("/")}
+  src="/logo.png"
+  alt="DENGO PLUS"
+  style={{ width: "130px", height: "auto", objectFit: "contain", cursor: "pointer", mixBlendMode: "multiply" }}
+/>
         </motion.div>
 
         <motion.div
@@ -95,26 +96,6 @@ const Header = ({ isShow }) => {
               )}
             </>
           )}
-          {/* <button
-            className="upload-btn flex items-center"
-            onClick={() => router.push("/pin/create")}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              className="w-5 h-5"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 4.5v15m7.5-7.5h-15"
-              />
-            </svg>
-            Upload
-          </button> */}
           {user ? (
             <div className="flex items-center">
               <img
@@ -122,7 +103,6 @@ const Header = ({ isShow }) => {
                 className="rounded-full w-10 cursor-pointer"
                 alt="Avatar"
               />
-              {/*   <p>{user?.displayName}</p> */}
             </div>
           ) : (
             <button
