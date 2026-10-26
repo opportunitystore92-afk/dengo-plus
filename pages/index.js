@@ -280,7 +280,7 @@ export default function Home() {
   };
 
   return (
-    <div className="bg-[#F1F1F2] min-h-screen relative font-sans select-none">
+    <div className="bg-[#F1F1F2] dark:bg-black min-h-screen relative font-sans select-none transition-colors">
       <Head>
         <title>DENGO PLUS</title>
         <meta name="description" content="DENGO PLUS video application" />
