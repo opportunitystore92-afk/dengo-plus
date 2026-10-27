@@ -61,9 +61,11 @@ export default function Header() {
           </button>
         </Link>
 
-        <button className="bg-[#FE2C55] hover:bg-red-600 text-white text-xs font-bold px-5 py-2 rounded-xl transition-all shadow-md cursor-pointer">
-          Log in
-        </button>
+        <Link href="/auth">
+          <button className="bg-[#FE2C55] hover:bg-red-600 text-white text-xs font-bold px-5 py-2 rounded-xl transition-all shadow-md cursor-pointer">
+            Log in
+          </button>
+        </Link>
       </div>
     </div>
   );
