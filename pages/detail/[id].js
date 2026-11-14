@@ -5,49 +5,45 @@ export default function DetailPage({ video }) {
   const description = video?.descricao || video?.description || 'Vê este vídeo no Dengo Plus';
   const rawThumbnail = video?.thumbnail || '/logo.png';
   const thumbnail = rawThumbnail.startsWith('http') ? rawThumbnail : `https://main.dengo-plus.pages.dev${rawThumbnail}`;
-  return (
-    <>
-      <Head>
-        <title>{title}</title>
-        <meta property="og:title" content={title} />
-        <meta property="og:description" content={description} />
-        <meta property="og:image" content={thumbnail} />
-        <meta property="twitter:card" content="summary_large_image" />
-        <meta property="twitter:image" content={thumbnail} />
-      </Head>
 
-      <div className="container" style={{ padding: '20px', color: '#fff', background: '#000', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <h1>{title}</h1>
-        {thumbnail && (
-          <video 
-            src={thumbnail} 
-            controls 
-            style={{ width: '100%', maxWidth: '400px', borderRadius: '8px', marginTop: '20px' }} 
-          />
-        )}
-      </div>
-    </>
+  return (
+    <div className="container" style={{ padding: '20px', color: '#fff', background: '#000', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <h1>{title}</h1>
+      <p>{description}</p>
+      {thumbnail && (
+        <video 
+          src={video?.url || thumbnail} 
+          controls 
+          style={{ width: '100%', maxWidth: '400px', borderRadius: '8px', marginTop: '20px' }} 
+        />
+      )}
+    </div>
   );
 }
 
-export async function getServerSideProps(context) {
-  const { id } = context.query;
+export async function getStaticPaths() {
+  return {
+    paths: [],
+    fallback: 'blocking',
+  };
+}
 
-  try {
-    const res = await fetch(`https://dengo-upload-worker.dnctraderoperation.workers.dev/posts?id=${id}`);
-    const data = await res.json();
-    const video = data?.post || data || null;
+export async function getStaticProps({ params }) {
+  const { id } = params;
+  
+  // Como o ID vem limpo, podes retornar os dados básicos ou simular o objeto vídeo
+  // Se precisares de buscar à base de dados, podes fazê-lo aqui diretamente.
+  const video = {
+    id,
+    titulo: 'Dengo Plus',
+    descricao: 'Vê este vídeo no Dengo Plus',
+    thumbnail: '/logo.png'
+  };
 
-    return {
-      props: {
-        video,
-      },
-    };
-  } catch (err) {
-    return {
-      props: {
-        video: null,
-      },
-    };
-  }
+  return {
+    props: {
+      video,
+    },
+    revalidate: 60,
+  };
 }
