@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "include": [
+    "/detail/*",
+    "/_next/data/*"
+  ],
+  "exclude": [
+    "/images/*",
+    "/favicon.ico",
+    "/_next/static/*",
+    "/logo.png",
+    "/vercel.svg",
+    "/_redirects"
+  ]
+}
