@@ -44,7 +44,7 @@ function ShareSheet({ video, onClose, onRequireAuth }) {
   if (!videoId && rawVideo.videoUrl) {
     videoId = String(rawVideo.videoUrl).split('/').pop().replace(/\.mp4$/i, '').trim();
   }
-  const detailUrl = `https://main.dengo-plus.pages.dev/detail?id=${videoId}`;
+  const detailUrl = `https://main.dengo-plus.pages.dev/detail/${videoId}`;
 
   const handleCopyLink = async () => {
     try { 
