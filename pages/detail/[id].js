@@ -2,9 +2,9 @@ import Head from 'next/head';
 
 export default function DetailPage({ video }) {
   const title = video?.titulo || video?.title || 'Dengo Plus';
-  const description = video?.descricao || 'Vê este vídeo no Dengo Plus';
-  const thumbnail = video?.thumbnail || video?.url || '';
-
+  const description = video?.descricao || video?.description || 'Vê este vídeo no Dengo Plus';
+  const rawThumbnail = video?.thumbnail || '/logo.png';
+  const thumbnail = rawThumbnail.startsWith('http') ? rawThumbnail : `https://main.dengo-plus.pages.dev${rawThumbnail}`;
   return (
     <>
       <Head>
