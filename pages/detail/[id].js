@@ -7,43 +7,45 @@ export default function DetailPage({ video }) {
   const thumbnail = rawThumbnail.startsWith('http') ? rawThumbnail : `https://main.dengo-plus.pages.dev${rawThumbnail}`;
 
   return (
-    <div className="container" style={{ padding: '20px', color: '#fff', background: '#000', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <h1>{title}</h1>
-      <p>{description}</p>
-      {thumbnail && (
-        <video 
-          src={video?.url || thumbnail} 
-          controls 
-          style={{ width: '100%', maxWidth: '400px', borderRadius: '8px', marginTop: '20px' }} 
-        />
-      )}
-    </div>
+    <>
+      <Head>
+        <title>{title}</title>
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={description} />
+        <meta property="og:image" content={thumbnail} />
+        <meta property="twitter:card" content="summary_large_image" />
+        <meta property="twitter:image" content={thumbnail} />
+      </Head>
+
+      <div className="container" style={{ padding: '20px', color: '#fff', background: '#000', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <h1>{title}</h1>
+        <p>{description}</p>
+        {thumbnail && (
+          <video 
+            src={video?.url || thumbnail} 
+            controls 
+            style={{ width: '100%', maxWidth: '400px', borderRadius: '8px', marginTop: '20px' }} 
+          />
+        )}
+      </div>
+    </>
   );
 }
 
-export async function getStaticPaths() {
-  return {
-    paths: [],
-    fallback: 'blocking',
-  };
-}
-
-export async function getStaticProps({ params }) {
+export async function getServerSideProps({ params }) {
   const { id } = params;
-  
-  // Como o ID vem limpo, podes retornar os dados básicos ou simular o objeto vídeo
-  // Se precisares de buscar à base de dados, podes fazê-lo aqui diretamente.
+
+  // Objeto base do vídeo para a página e para as meta tags do Open Graph
   const video = {
     id,
-    titulo: 'Dengo Plus',
-    descricao: 'Vê este vídeo no Dengo Plus',
-    thumbnail: '/logo.png'
+    titulo: `Vídeo ${id}`,
+    descricao: 'Vê este vídeo incrível no Dengo Plus',
+    thumbnail: '/logo.png' // Podes alterar para a miniatura real se a tens guardada ou mapeada
   };
 
   return {
     props: {
       video,
     },
-    revalidate: 60,
   };
 }
