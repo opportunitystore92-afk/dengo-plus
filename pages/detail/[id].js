@@ -1,23 +1,29 @@
 import Head from 'next/head';
 
-export default function Detail({ postData }) {
-  const title = postData?.caption || postData?.title || "Dengo Plus - Vídeo Exclusivo";
-  const thumbnail = postData?.thumbnail_url || postData?.thumbnail || postData?.image_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800";
+export default function DetailPage({ video }) {
+  const title = video?.titulo || video?.title || 'Dengo Plus';
+  const description = video?.descricao || 'Vê este vídeo no Dengo Plus';
+  const thumbnail = video?.thumbnail || video?.url || '';
 
   return (
     <>
       <Head>
         <title>{title}</title>
         <meta property="og:title" content={title} />
+        <meta property="og:description" content={description} />
         <meta property="og:image" content={thumbnail} />
-        <meta name="twitter:title" content={title} />
-        <meta name="twitter:image" content={thumbnail} />
+        <meta property="twitter:card" content="summary_large_image" />
+        <meta property="twitter:image" content={thumbnail} />
       </Head>
 
-      <div className="w-full min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
-        <h1 className="text-xl font-bold mb-4">{title}</h1>
+      <div className="container" style={{ padding: '20px', color: '#fff', background: '#000', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <h1>{title}</h1>
         {thumbnail && (
-          <img src={thumbnail} alt="Thumbnail" className="max-w-md rounded shadow-lg" />
+          <video 
+            src={thumbnail} 
+            controls 
+            style={{ width: '100%', maxWidth: '400px', borderRadius: '8px', marginTop: '20px' }} 
+          />
         )}
       </div>
     </>
@@ -25,24 +31,23 @@ export default function Detail({ postData }) {
 }
 
 export async function getServerSideProps(context) {
-  const { query, req } = context;
-  const id = query.id;
-
-  let postData = null;
+  const { id } = context.query;
 
   try {
-    const env = req?.env || process.env;
-    if (env && env.DB) {
-      const stmt = env.DB.prepare("SELECT * FROM posts WHERE id = ?");
-      postData = await stmt.bind(id).first();
-    }
-  } catch (err) {
-    // Fallback silencioso
-  }
+    const res = await fetch(`https://dengo-upload-worker.dnctraderoperation.workers.dev/posts?id=${id}`);
+    const data = await res.json();
+    const video = data?.post || data || null;
 
-  return {
-    props: {
-      postData: postData || null,
-    },
-  };
+    return {
+      props: {
+        video,
+      },
+    };
+  } catch (err) {
+    return {
+      props: {
+        video: null,
+      },
+    };
+  }
 }
