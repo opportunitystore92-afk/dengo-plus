@@ -4,14 +4,19 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && next export",
+    "build": "npx @cloudflare/next-on-pages",
+    "preview": "npm run build && npx wrangler pages dev .vercel/output/static",
+    "deploy": "npm run build && npx wrangler pages deploy .vercel/output/static",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
     "@faker-js/faker": "^7.6.0",
+    "@ffmpeg/core": "^0.12.10",
+    "@ffmpeg/ffmpeg": "^0.12.15",
     "firebase": "^9.13.0",
     "framer-motion": "^7.6.3",
+    "lucide-react": "^1.64.0",
     "moment": "^2.29.4",
     "next": "13.0.0",
     "react": "18.2.0",
@@ -24,6 +29,7 @@
     "tailwind-scrollbar-hide": "^1.1.7"
   },
   "devDependencies": {
+    "@cloudflare/next-on-pages": "^1.13.16",
     "autoprefixer": "^10.4.13",
     "eslint": "8.26.0",
     "eslint-config-next": "13.0.0",

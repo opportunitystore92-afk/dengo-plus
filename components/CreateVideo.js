@@ -1,129 +1,188 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { X, Upload, Video as VideoIcon } from 'lucide-react';
 
-export default function CreateVideo({ onVideoCreated }) {
+const WORKER_URL = 'https://dengo-upload-worker.dnctraderoperation.workers.dev';
+
+export default function CreateVideo({ onClose, onPublish }) {
+  const [file, setFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
   const [caption, setCaption] = useState('');
-  const [videoFile, setVideoFile] = useState(null);
-  const [videoPreview, setVideoPreview] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [username, setUsername] = useState('usuario');
+  const [uploading, setUploading] = useState(false);
 
-  // Lista de emojis populares estilo TikTok para inserção rápida
-  const quickEmojis = ['🔥', '❤️', '😂', '✨', '🚀', '👏', '😍', '🎉'];
-
-  const addEmoji = (emoji) => {
-    setCaption((prev) => prev + emoji);
-  };
-
-  const addHashtag = (tag) => {
-    setCaption((prev) => prev + ` #${tag} `);
-  };
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setUsername(localStorage.getItem('dengoo_username') || 'usuario');
+    }
+  }, []);
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setVideoFile(file);
-      setVideoPreview(URL.createObjectURL(file));
+    const selectedFile = e.target.files[0];
+    if (selectedFile && selectedFile.type.startsWith('video/')) {
+      setFile(selectedFile);
+      setPreviewUrl(URL.createObjectURL(selectedFile));
+    } else {
+      alert('Por favor, selecciona um ficheiro de vídeo válido.');
     }
   };
 
-  const handleSubmit = (e) => {
+  const generateThumbnail = (videoFile) => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.src = URL.createObjectURL(videoFile);
+      video.muted = true;
+      video.playsInline = true;
+      video.currentTime = 0.5;
+
+      let resolved = false;
+
+      // Timeout de segurança: se demorar mais de 2 segundos, desiste da capa para não travar o envio
+      const timer = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          resolve(null);
+        }
+      }, 2000);
+
+      video.onseeked = () => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timer);
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth || 720;
+          canvas.height = video.videoHeight || 1280;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          
+          canvas.toBlob((blob) => {
+            resolve(blob);
+          }, 'image/jpeg', 0.85);
+        } catch (err) {
+          resolve(null);
+        }
+      };
+
+      video.onerror = () => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          resolve(null);
+        }
+      };
+    });
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!videoFile || !caption) {
-      alert('Por favor, seleciona um vídeo e escreve uma legenda.');
-      return;
+    if (!file) return;
+
+    try {
+      setUploading(true);
+      const newId = String(Date.now() + '-' + Math.floor(Math.random() * 1000000));
+      
+      const thumbBlob = await generateThumbnail(file);
+
+      if (thumbBlob) {
+        await fetch(`${WORKER_URL}/thumbnails/${newId}.jpg`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'image/jpeg' },
+          body: thumbBlob
+        }).catch(() => {});
+      }
+
+      const videoKey = `videos/${newId}.mp4`;
+      const uploadResponse = await fetch(`${WORKER_URL}/${videoKey}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'video/mp4' },
+        body: file
+      });
+
+      const uploadResult = await uploadResponse.json().catch(() => ({}));
+      if (!uploadResponse.ok || !uploadResult.success) {
+        throw new Error(uploadResult.error || 'Erro ao enviar o vídeo.');
+      }
+
+      const permanentVideoUrl = `${WORKER_URL}/${videoKey}`;
+      const permanentThumbnailUrl = thumbBlob ? `${WORKER_URL}/thumbnails/${newId}.jpg` : 'https://main.dengo-plus.pages.dev/logo.png';
+
+      const avatar = typeof window !== 'undefined' ? localStorage.getItem('dengoo_avatar') : '/default-avatar.png';
+
+      const postData = {
+        id: newId,
+        username: username,
+        caption: caption || 'Novo vídeo no Dengo Plus!',
+        videoUrl: permanentVideoUrl,
+        thumbnailUrl: permanentThumbnailUrl,
+        profileImage: avatar || '/default-avatar.png'
+      };
+
+      await fetch(`${WORKER_URL}/posts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(postData)
+      });
+
+      if (onPublish) {
+        onPublish(postData, file);
+      } else {
+        onClose();
+      }
+    } catch (err) {
+      alert('Erro: ' + err.message);
+      setUploading(false);
     }
-
-    setLoading(true);
-
-    const newPost = {
-      id: Date.now(),
-      user: {
-        username: 'alves_creator',
-        name: 'Alves',
-        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100'
-      },
-      caption: caption,
-      videoUrl: videoPreview,
-      sound: 'Som Original - alves_creator',
-      likes: 0,
-      comments: 0,
-      shares: 0
-    };
-
-    if (onVideoCreated) {
-      onVideoCreated(newPost);
-    }
-
-    setCaption('');
-    setVideoFile(null);
-    setVideoPreview('');
-    setLoading(false);
-    alert('Vídeo publicado com sucesso!');
   };
 
   return (
-    <div className="bg-white dark:bg-[#1a1a1a] p-6 rounded-2xl shadow-md border border-gray-200 dark:border-gray-800 mb-6 transition-colors">
-      <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-        <span>✨</span> Criar nova publicação
-      </h3>
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+      <div className="relative w-full max-w-md bg-[#18181b] border border-zinc-800 rounded-2xl p-6 text-white shadow-2xl">
+        <button onClick={onClose} className="absolute top-4 right-4 text-zinc-400 hover:text-white">
+          <X className="h-5 w-5" />
+        </button>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <textarea
-          rows="3"
-          placeholder="Escreve uma legenda ou hashtag..."
-          value={caption}
-          onChange={(e) => setCaption(e.target.value)}
-          className="bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-3 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#FE2C55] resize-none"
-        />
+        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+          <VideoIcon className="text-pink-500" /> Publicar Novo Vídeo
+        </h2>
 
-        {/* Barra de Emojis Rápidos e Hashtags */}
-        <div className="flex flex-wrap items-center gap-1.5 py-1">
-          <span className="text-[10px] font-bold text-gray-400 mr-1">Emojis:</span>
-          {quickEmojis.map((emoji, index) => (
-            <button
-              key={index}
-              type="button"
-              onClick={() => addEmoji(emoji)}
-              className="bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 px-2 py-1 rounded-lg text-xs transition-all"
-            >
-              {emoji}
-            </button>
-          ))}
-          <div className="h-4 w-[1px] bg-gray-300 dark:bg-gray-700 mx-1" />
-          <button
-            type="button"
-            onClick={() => addHashtag('trending')}
-            className="text-[11px] bg-pink-50 dark:bg-pink-950/30 text-[#FE2C55] px-2 py-1 rounded-lg font-semibold"
-          >
-            #trending
-          </button>
-          <button
-            type="button"
-            onClick={() => addHashtag('dengoplus')}
-            className="text-[11px] bg-pink-50 dark:bg-pink-950/30 text-[#FE2C55] px-2 py-1 rounded-lg font-semibold"
-          >
-            #dengoplus
-          </button>
-        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {!previewUrl ? (
+            <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-zinc-700 rounded-xl cursor-pointer bg-zinc-900/50 hover:bg-zinc-900 transition">
+              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                <Upload className="w-10 h-10 mb-3 text-zinc-400" />
+                <p className="mb-2 text-sm text-zinc-300"><span className="font-semibold">Clica para enviar</span> ou arrasta o vídeo</p>
+                <p className="text-xs text-zinc-500">MP4, WebM (Qualquer tamanho)</p>
+              </div>
+              <input type="file" accept="video/*" onChange={handleFileChange} className="hidden" />
+            </label>
+          ) : (
+            <div className="relative w-full h-40 bg-black rounded-xl overflow-hidden flex items-center justify-center">
+              <video src={previewUrl} className="h-full object-contain" />
+              <button type="button" onClick={() => { setFile(null); setPreviewUrl(''); }} className="absolute top-2 right-2 bg-black/70 p-1 rounded-full text-white hover:bg-red-600 transition">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
 
-        <div className="flex items-center justify-between pt-2">
-          <label className="bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all">
-            📁 Escolher Ficheiro
-            <input type="file" accept="video/*" onChange={handleFileChange} className="hidden" />
-          </label>
-
-          <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-[150px]">
-            {videoFile ? videoFile.name : 'Nenhum ficheiro selecionado'}
-          </span>
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Legenda / Descrição</label>
+            <textarea
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              placeholder="Escreve uma legenda cativante..."
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-pink-500 resize-none h-20"
+            />
+          </div>
 
           <button
             type="submit"
-            disabled={loading}
-            className="bg-[#FE2C55] hover:bg-red-600 text-white text-xs font-bold px-6 py-2 rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-50"
+            disabled={!file || uploading}
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-400 to-pink-500 text-white font-semibold shadow-lg hover:opacity-90 transition disabled:opacity-50"
           >
-            {loading ? 'A publicar...' : 'Publicar'}
+            {uploading ? 'A enviar vídeo...' : 'Publicar Vídeo'}
           </button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }

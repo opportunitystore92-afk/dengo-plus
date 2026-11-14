@@ -1,0 +1,12 @@
+name = "dengo-upload-worker"
+main = "index.js"
+compatibility_date = "2026-10-27"
+
+[[r2_buckets]]
+binding = "MY_BUCKET"
+bucket_name = "dengo-videos"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "dengo-plus-db"
+database_id = "4d41a582-471b-4733-abf7-8bc3d03bcd1f"
