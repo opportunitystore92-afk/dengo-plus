@@ -1,21 +1,32 @@
-export async function onRequest(context) {
-  const id = context.params.id;
-  // Pega a lista de vídeos (do teu videos.json no R2 ou do KV)
-  const res = await fetch("https://main.dengo-plus.pages.dev/videos.json");
-  const videos = await res.json();
-  const video = videos.find(v => String(v.id) === String(id));
+import { useRouter } from "next/router";
+import { useEffect, useState } from "react";
 
-  if (!video) return new Response("Não achado", { status: 404 });
+export default function Detail() {
+  const router = useRouter();
+  const { id } = router.query;
+  const [video, setVideo] = useState(null);
 
-  const html = `<!DOCTYPE html>
-  <html><head>
-    <title>${video.title} - Dengo Plus</title>
-    <meta property="og:title" content="${video.title}" />
-    <meta property="og:image" content="${video.thumbnail}" />
-    <meta property="og:video" content="${video.videoUrl}" />
-    <meta property="og:type" content="video.other" />
-    <meta http-equiv="refresh" content="0; url=/detail/${id}" />
-  </head><body>Carregando...</body></html>`;
+  useEffect(() => {
+    if (!id) return;
+    fetch("https://main.dengo-plus.pages.dev/videos.json")
+      .then((r) => r.json())
+      .then((videos) => {
+        const v = videos.find((x) => String(x.id) === String(id));
+        setVideo(v || false);
+      });
+  }, [id]);
 
-  return new Response(html, { headers: { "Content-Type": "text/html" } });
+  if (video === null) return <p style={{ color: "#fff", padding: 20 }}>Carregando...</p>;
+  if (video === false) return <p style={{ color: "#fff", padding: 20 }}>Vídeo não achado</p>;
+
+  return (
+    <div style={{ background: "#000", minHeight: "100vh", color: "#fff", padding: 20 }}>
+      <h1>{video.title}</h1>
+      <video src={video.videoUrl} controls poster={video.thumbnail} style={{ width: "100%", maxWidth: 700 }} />
+      <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
+        <a href={video.videoUrl} download style={{ background: "#25D366", color: "#000", padding: "12px 20px", borderRadius: 8, textDecoration: "none", fontWeight: "bold" }}>Baixar</a>
+        <button onClick={() => navigator.clipboard.writeText(window.location.href)} style={{ background: "#fff", color: "#000", padding: "12px 20px", borderRadius: 8, fontWeight: "bold" }}>Copiar link</button>
+      </div>
+    </div>
+  );
 }
