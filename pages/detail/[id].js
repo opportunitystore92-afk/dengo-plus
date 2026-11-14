@@ -1,9 +1,6 @@
-import { useRouter } from 'next/router';
 import Head from 'next/head';
 
 export default function Detail({ postData }) {
-  const router = useRouter();
-  
   const title = postData?.caption || postData?.title || "Dengo Plus - Vídeo Exclusivo";
   const thumbnail = postData?.thumbnail_url || postData?.thumbnail || postData?.image_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800";
 
