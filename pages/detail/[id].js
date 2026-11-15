@@ -1,4 +1,4 @@
-export const runtime = 'edge';
+export const runtime = 'experimental-edge';
 
 import Head from "next/head";
 import { useRouter } from "next/router";
