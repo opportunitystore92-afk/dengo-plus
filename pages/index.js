@@ -26,11 +26,11 @@ function AuthModal({ onClose }) {
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose}></div>
       <div className="relative z-10 w-full max-w-sm bg-[#18181b] border border-zinc-800 rounded-2xl p-6 text-center shadow-2xl">
-        <button onClick={onClose} className="absolute top-4 right-4 text-zinc-400 hover:text-white"><X className="h-5 w-5" /></button>
-        <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-cyan-400 to-pink-500 mx-auto flex items-center justify-center mb-4 text-white font-bold text-xl">D</div>
+        <button onClick={onClose} className="absolute top-4 right-4 text-zinc-400 hover:text-white">X</button>
+        <div className="h-12 w-12 rounded-full bg-white mx-auto flex items-center justify-center mb-4 text-black font-bold text-xl">D</div>
         <h3 className="text-lg font-bold text-white mb-2">Cadastra-te no Dengo</h3>
         <p className="text-sm text-zinc-400 mb-6">Precisas de ter uma conta para curtir, comentar e interagir com os vídeos.</p>
-        <button onClick={() => window.location.href = '/auth'} className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-400 to-pink-500 text-white font-semibold shadow-lg hover:opacity-90 transition">Fazer Cadastro / Login</button>
+        <button onClick={() => window.location.href = '/auth'} className="w-full py-3 rounded-xl bg-white text-black font-semibold shadow-lg hover:opacity-90 transition">Fazer Cadastro / Login</button>
       </div>
     </div>
   );
@@ -289,7 +289,7 @@ export default function HomeFeed() {
       <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between border-t border-gray-800 bg-black/95 px-6 py-2 text-white h-14">
         <button type="button" onClick={() => window.location.href = '/'} className="flex flex-col items-center gap-1 text-xs cursor-pointer"><Home className="h-6 w-6" /><span>Início</span></button>
         <button type="button" onClick={() => window.location.href = '/following'} className="flex flex-col items-center gap-1 text-xs text-gray-400 hover:text-white cursor-pointer"><Users className="h-6 w-6" /><span>Amigos</span></button>
-        <button type="button" onClick={() => setShowCreateModal(true)} className="relative rounded-lg bg-gradient-to-r from-cyan-400 to-pink-500 p-[2px] focus:outline-none cursor-pointer"><div className="flex items-center justify-center rounded-md bg-white px-3 py-1 text-black"><Plus className="h-5 w-5 stroke-[3]" /></div></button>
+        <button type="button" onClick={() => setShowCreateModal(true)} className="relative rounded-lg bg-white p-[2px] focus:outline-none cursor-pointer"><div className="flex items-center justify-center rounded-md bg-white px-3 py-1 text-black"><Plus className="h-5 w-5 stroke-[3]" /></div></button>
         <button type="button" onClick={() => window.location.href = '/explore'} className="flex flex-col items-center gap-1 text-xs text-gray-400 hover:text-white cursor-pointer"><MessageSquare className="h-6 w-6" /><span>Caixa</span></button>
         <button type="button" onClick={() => window.location.href = '/profile'} className="flex flex-col items-center gap-1 text-xs text-gray-400 hover:text-white cursor-pointer"><User className="h-6 w-6" /><span>Perfil</span></button>
       </nav>
