@@ -1,121 +1,89 @@
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import { firestore } from "../../firebase/firebase";
-import { doc, getDoc } from "firebase/firestore";
+
+const WORKER_URL = 'https://dengo-upload-worker.dnctraderoperation.workers.dev';
 
 export default function Detail() {
   const router = useRouter();
   const [video, setVideo] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
   const [finalId, setFinalId] = useState(null);
-  const [debug, setDebug] = useState("a iniciar...");
+  const [debug, setDebug] = useState("a iniciar - SEM Firebase, a usar Worker...");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const parts = window.location.pathname.split("/").filter(Boolean);
       const idFromUrl = parts[parts.length - 1];
-      if (idFromUrl && idFromUrl !== "detail") {
-        setFinalId(String(idFromUrl));
-        setDebug("ID achado na URL: " + idFromUrl);
-        return;
-      }
+      if (idFromUrl && idFromUrl !== "detail") setFinalId(String(idFromUrl));
     }
     if (router.query?.id) setFinalId(String(router.query.id));
   }, [router.query]);
 
   useEffect(() => {
     if (!finalId) return;
-    let jaRespondeu = false;
+    setDebug("A buscar no Worker: " + WORKER_URL + "/posts | id procurado: " + finalId);
 
-    const timeout = setTimeout(() => {
-      if (!jaRespondeu) {
-        setDebug("TIMEOUT 5s: Firebase SDK nao respondeu. projectId=" + (firestore?.app?.options?.projectId || "VAZIO / SEM CONFIG") + " | apiKey=" + (firestore?.app?.options?.apiKey ? "tem apiKey" : "SEM apiKey"));
-        setLoading(false);
-      }
-    }, 5000);
-
-    setDebug("A buscar no Firebase: posts / " + finalId + " | project=" + (firestore?.app?.options?.projectId || "VAZIO"));
-
-    // Tentativa 2: REST direto, nao trava
-    const projectId = firestore?.app?.options?.projectId;
-    const apiKey = firestore?.app?.options?.apiKey;
-    if (projectId && apiKey) {
-      fetch(`https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/posts/${encodeURIComponent(String(finalId))}?key=${apiKey}`)
-        .then(async (r) => {
-          const txt = await r.text();
-          if (r.status === 404) {
-            jaRespondeu = true; clearTimeout(timeout);
-            setDebug("REST respondeu 404: documento NAO EXISTE em posts/" + finalId + " - ID do Instagram != ID do Firebase. Precisa buscar por campo.");
-            setNotFound(true); setLoading(false); return;
-          }
-          if (!r.ok) {
-            jaRespondeu = true; clearTimeout(timeout);
-            setDebug("REST respondeu ERRO " + r.status + ": " + txt.slice(0, 300));
-            setLoading(false); return;
-          }
-          jaRespondeu = true; clearTimeout(timeout);
-          setDebug("REST ACHOU! Resposta: " + txt.slice(0, 400));
-          try {
-            const j = JSON.parse(txt);
-            const f = j.fields || {};
-            const getS = (k) => f[k]?.stringValue || "";
-            setVideo({ id: finalId, title: getS("title") || getS("titulo") || getS("caption") || "Video Dengo", caption: getS("caption") || getS("title") || "", url: getS("url") || getS("src") || getS("videoUrl") || "", src: getS("url") || getS("src") || getS("videoUrl") || "", videoUrl: getS("url") || getS("src") || getS("videoUrl") || "", image: getS("image") || getS("thumbnail") || getS("cover") || "", thumbnail: getS("image") || getS("thumbnail") || getS("cover") || "" });
-          } catch(e) { setDebug("REST achou mas nao conseguiu ler campos: " + e.message); }
+    // 1. Tenta buscar 1 post direto
+    fetch(`${WORKER_URL}/posts/${encodeURIComponent(finalId)}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error("posts/id deu HTTP " + r.status);
+        const one = await r.json();
+        const v = one?.post || one?.data || one;
+        if (v && (v.videoUrl || v.video_url || v.mediaUrl)) {
+          setDebug("Achou direto em /posts/" + finalId);
+          setVideo({ id: String(v.id || finalId), username: v.username || "usuario", caption: v.caption || "", videoUrl: v.videoUrl || v.video_url || v.mediaUrl || "", avatar: v.avatar || v.profileImage || "/default-avatar.png" });
           setLoading(false);
-        })
-        .catch((err) => {
-          if (!jaRespondeu) setDebug("REST ERRO fetch: " + err.message);
-        });
-    }
-
-    getDoc(doc(firestore, "posts", String(finalId)))
-      .then((snap) => {
-        if (jaRespondeu) return;
-        jaRespondeu = true; clearTimeout(timeout);
-        if (!snap.exists()) {
-          setDebug("SDK respondeu: documento NAO EXISTE em posts/" + finalId);
-          setNotFound(true); setLoading(false); return;
+          return true;
         }
-        const data = snap.data();
-        setDebug("SDK respondeu: achou! campos: " + Object.keys(data).join(", "));
-        setVideo({ id: snap.id, title: data.title || data.titulo || data.caption || "Video Dengo", caption: data.caption || data.title || data.titulo || "", url: data.url || data.src || data.videoUrl || "", src: data.url || data.src || data.videoUrl || "", videoUrl: data.url || data.src || data.videoUrl || "", image: data.image || data.thumbnail || data.cover || data.poster || data.thumb || "", thumbnail: data.image || data.thumbnail || data.cover || data.poster || data.thumb || "" });
-        setLoading(false);
+        throw new Error("posts/id nao trouxe videoUrl");
       })
-      .catch((err) => {
-        if (jaRespondeu) return;
-        jaRespondeu = true; clearTimeout(timeout);
-        setDebug("SDK ERRO: " + (err?.message || String(err)) + " | code: " + err?.code);
-        setLoading(false);
+      .catch(() => {
+        // 2. Se nao deu, busca a lista toda igual a home faz e procura o id
+        setDebug("Nao achou direto, a buscar lista toda igual a home...");
+        return fetch(`${WORKER_URL}/posts`)
+          .then(async (r) => {
+            if (!r.ok) throw new Error("lista /posts deu HTTP " + r.status);
+            const data = await r.json();
+            const list = Array.isArray(data) ? data : (data.posts || data.data || []);
+            setDebug("Lista veio com " + list.length + " videos. A procurar id " + finalId + " | ids: " + list.slice(0,5).map(p=>p.id).join(", "));
+            const found = list.find((p) => String(p.id) === String(finalId));
+            if (!found) {
+              setDebug("NAO ACHOU na lista. Total " + list.length + ". Esse id nao existe no Worker. Ids primeiros: " + list.slice(0,5).map(p=>p.id).join(", "));
+              setLoading(false);
+              return;
+            }
+            setDebug("ACHOU na lista! caption: " + (found.caption || ""));
+            setVideo({ id: String(found.id), username: found.username || "usuario", caption: found.caption || "", videoUrl: found.videoUrl || found.video_url || found.mediaUrl || "", avatar: found.avatar || found.profileImage || "/default-avatar.png" });
+            setLoading(false);
+          })
+          .catch((err) => {
+            setDebug("ERRO Worker: " + err.message);
+            setLoading(false);
+          });
       });
-    return () => clearTimeout(timeout);
   }, [finalId]);
 
-  const thumb = video?.thumbnail || video?.image || "https://dengo-plus.pages.dev/logo.png";
-  const title = video?.title || "Dengo Plus";
-  const videoUrl = video?.videoUrl || video?.url || video?.src || "";
+  const videoUrl = video?.videoUrl || "";
+  const thumb = video?.avatar || "https://dengo-plus.pages.dev/logo.png";
 
   return (
     <>
-      <Head><title>{title} - Dengo Plus</title></Head>
+      <Head><title>{video?.caption || "Dengo Plus"} - Dengo Plus</title></Head>
       <div style={{ maxWidth: 800, margin: "0 auto", padding: 16, fontFamily: "sans-serif", color: "#000", background: "#fff", minHeight: "100vh" }}>
         <div style={{ background: "#ffeeba", padding: 12, borderRadius: 8, fontSize: 13, wordBreak: "break-word" }}>
-          <b>DEBUG:</b><br/>{debug}<br/>
-          ID: {finalId || "nenhum"}<br/>
-          Loading: {String(loading)} | NotFound: {String(notFound)}
+          <b>DEBUG WORKER - SEM FIREBASE:</b><br/>{debug}<br/>ID: {finalId || "nenhum"}
         </div>
         {loading && <p style={{marginTop: 16}}>A carregar vídeo... ID: {finalId}</p>}
-        {!loading && notFound && <p style={{marginTop: 16}}>Vídeo não encontrado - ID: {finalId}</p>}
+        {!loading && !video && <p style={{marginTop: 16}}>Vídeo não encontrado no Worker - ID: {finalId}<br/><a href="/">← Voltar para a home</a></p>}
         {!loading && video && (
           <>
-            <h2 style={{ fontSize: 20 }}>{video.title}</h2>
+            <h2 style={{ fontSize: 20 }}>@{video.username}</h2>
+            <p>{video.caption}</p>
             {videoUrl ? (
-              <video src={videoUrl} controls autoPlay playsInline style={{ width: "100%", background: "#000", borderRadius: 8 }} poster={thumb} />
-            ) : (
-              <p>Sem URL de vídeo neste post - videoUrl vazio</p>
-            )}
-            {video.caption ? <p>{video.caption}</p> : null}
+              <video src={videoUrl} controls autoPlay playsInline style={{ width: "100%", background: "#000", borderRadius: 8 }} />
+            ) : <p>Sem URL de vídeo</p>}
+            <p style={{marginTop: 12}}><a href="/">← Voltar</a></p>
           </>
         )}
       </div>
