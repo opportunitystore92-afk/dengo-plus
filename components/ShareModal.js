@@ -6,9 +6,7 @@ export default function ShareModal({ video, usuario }) {
   // Limpa o id - tira o .mp4 se vier junto
   const cleanId = String(video?.id || '').replace('.mp4', '').trim();
 
- const url = typeof window !== "undefined"
-  ? `${window.location.origin}/detail/${cleanId}`
-  : '';
+   const url = `https://dengo-plus.pages.dev/detail/${cleanId}`;
   const manchete = video?.titulo || video?.title || video?.descricao || 'Vê este vídeo no Dengo';
   const textoCompleto = `Olha esse vídeo no Dengo: ${url}`;
 
