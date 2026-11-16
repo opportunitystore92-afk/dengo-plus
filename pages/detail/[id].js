@@ -10,14 +10,15 @@ export default function Detail() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [finalId, setFinalId] = useState(null);
+  const [debug, setDebug] = useState("a iniciar...");
 
-  // Pega o ID da URL direto, não depende do router.query
   useEffect(() => {
     if (typeof window !== "undefined") {
       const parts = window.location.pathname.split("/").filter(Boolean);
       const idFromUrl = parts[parts.length - 1];
       if (idFromUrl && idFromUrl !== "detail") {
         setFinalId(String(idFromUrl));
+        setDebug("ID achado na URL: " + idFromUrl);
         return;
       }
     }
@@ -26,15 +27,17 @@ export default function Detail() {
 
   useEffect(() => {
     if (!finalId) return;
-    setLoading(true);
+    setDebug("A buscar no Firebase: posts / " + finalId);
     getDoc(doc(firestore, "posts", String(finalId)))
       .then((snap) => {
         if (!snap.exists()) {
+          setDebug("Firebase respondeu: documento NAO EXISTE em posts/" + finalId);
           setNotFound(true);
           setLoading(false);
           return;
         }
         const data = snap.data();
+        setDebug("Firebase respondeu: achou! campos: " + Object.keys(data).join(", "));
         setVideo({
           id: snap.id,
           title: data.title || data.titulo || data.caption || "Video Dengo",
@@ -49,40 +52,33 @@ export default function Detail() {
         setLoading(false);
       })
       .catch((err) => {
-        console.log("Erro firestore:", err);
+        setDebug("ERRO Firebase: " + (err?.message || String(err)) + " | code: " + err?.code);
         setLoading(false);
       });
   }, [finalId]);
 
-  const rawThumb = video?.thumbnail || video?.image || "";
-  const thumb = rawThumb
-    ? (rawThumb.startsWith("http") ? rawThumb : `https://dengo-plus.pages.dev${rawThumb.startsWith("/") ? "" : "/"}${rawThumb}`)
-    : "https://dengo-plus.pages.dev/logo.png";
-  const title = video?.title || video?.caption || "Dengo Plus";
-  const desc = video?.caption || video?.description || "Vê este vídeo no Dengo Plus";
+  const thumb = video?.thumbnail || video?.image || "https://dengo-plus.pages.dev/logo.png";
+  const title = video?.title || "Dengo Plus";
   const videoUrl = video?.videoUrl || video?.url || video?.src || "";
 
   return (
     <>
-      <Head>
-        <title>{title} - Dengo Plus</title>
-        <meta property="og:title" content={title} />
-        <meta property="og:description" content={desc} />
-        <meta property="og:image" content={thumb} />
-        <meta name="twitter:title" content={title} />
-        <meta name="twitter:description" content={desc} />
-        <meta name="twitter:image" content={thumb} />
-      </Head>
+      <Head><title>{title} - Dengo Plus</title></Head>
       <div style={{ maxWidth: 800, margin: "0 auto", padding: 16, fontFamily: "sans-serif", color: "#000", background: "#fff", minHeight: "100vh" }}>
-        {loading && <p>A carregar vídeo... ID: {finalId || "a procurar..."}</p>}
-        {!loading && notFound && <p>Vídeo não encontrado - ID: {finalId}</p>}
+        <div style={{ background: "#ffeeba", padding: 12, borderRadius: 8, fontSize: 13, wordBreak: "break-word" }}>
+          <b>DEBUG:</b><br/>{debug}<br/>
+          ID: {finalId || "nenhum"}<br/>
+          Loading: {String(loading)} | NotFound: {String(notFound)}
+        </div>
+        {loading && <p style={{marginTop: 16}}>A carregar vídeo... ID: {finalId}</p>}
+        {!loading && notFound && <p style={{marginTop: 16}}>Vídeo não encontrado - ID: {finalId}</p>}
         {!loading && video && (
           <>
             <h2 style={{ fontSize: 20 }}>{video.title}</h2>
             {videoUrl ? (
               <video src={videoUrl} controls autoPlay playsInline style={{ width: "100%", background: "#000", borderRadius: 8 }} poster={thumb} />
             ) : (
-              <p>Sem URL de vídeo neste post</p>
+              <p>Sem URL de vídeo neste post - videoUrl vazio</p>
             )}
             {video.caption ? <p>{video.caption}</p> : null}
           </>
