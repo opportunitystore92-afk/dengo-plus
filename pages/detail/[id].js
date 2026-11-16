@@ -6,11 +6,23 @@ import { doc, getDoc } from "firebase/firestore";
 
 export default function Detail() {
   const router = useRouter();
-  const { id: queryId } = router.query;
-  const finalId = queryId ? String(queryId) : null;
   const [video, setVideo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [finalId, setFinalId] = useState(null);
+
+  // Pega o ID da URL direto, não depende do router.query
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const parts = window.location.pathname.split("/").filter(Boolean);
+      const idFromUrl = parts[parts.length - 1];
+      if (idFromUrl && idFromUrl !== "detail") {
+        setFinalId(String(idFromUrl));
+        return;
+      }
+    }
+    if (router.query?.id) setFinalId(String(router.query.id));
+  }, [router.query]);
 
   useEffect(() => {
     if (!finalId) return;
@@ -26,7 +38,6 @@ export default function Detail() {
         setVideo({
           id: snap.id,
           title: data.title || data.titulo || data.caption || "Video Dengo",
-          titulo: data.title || data.titulo || data.caption || "Video Dengo",
           caption: data.caption || data.title || data.titulo || "",
           description: data.description || data.caption || "",
           url: data.url || data.src || data.videoUrl || "",
@@ -34,17 +45,16 @@ export default function Detail() {
           videoUrl: data.url || data.src || data.videoUrl || "",
           image: data.image || data.thumbnail || data.cover || data.poster || data.thumb || "",
           thumbnail: data.image || data.thumbnail || data.cover || data.poster || data.thumb || "",
-          cover: data.cover || data.image || data.thumbnail || "",
-          poster: data.poster || data.image || data.thumbnail || "",
         });
         setLoading(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.log("Erro firestore:", err);
         setLoading(false);
       });
   }, [finalId]);
 
-  const rawThumb = video?.thumbnail || video?.cover || video?.poster || video?.image || video?.thumbnailUrl || "";
+  const rawThumb = video?.thumbnail || video?.image || "";
   const thumb = rawThumb
     ? (rawThumb.startsWith("http") ? rawThumb : `https://dengo-plus.pages.dev${rawThumb.startsWith("/") ? "" : "/"}${rawThumb}`)
     : "https://dengo-plus.pages.dev/logo.png";
@@ -56,23 +66,27 @@ export default function Detail() {
     <>
       <Head>
         <title>{title} - Dengo Plus</title>
-        <meta property="og:type" content="website" />
         <meta property="og:title" content={title} />
         <meta property="og:description" content={desc} />
-        <meta property="og:url" content={`https://dengo-plus.pages.dev/detail/${finalId}`} />
         <meta property="og:image" content={thumb} />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
-        <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={title} />
         <meta name="twitter:description" content={desc} />
         <meta name="twitter:image" content={thumb} />
-        {videoUrl ? <meta property="og:video" content={videoUrl} /> : null}
       </Head>
-      <div>
-        {loading && <p>A carregar vídeo...</p>}
-        {!loading && notFound && <p>Vídeo não encontrado</p>}
-        {!loading && video && <p>{video.title || video.caption}</p>}
+      <div style={{ maxWidth: 800, margin: "0 auto", padding: 16, fontFamily: "sans-serif", color: "#000", background: "#fff", minHeight: "100vh" }}>
+        {loading && <p>A carregar vídeo... ID: {finalId || "a procurar..."}</p>}
+        {!loading && notFound && <p>Vídeo não encontrado - ID: {finalId}</p>}
+        {!loading && video && (
+          <>
+            <h2 style={{ fontSize: 20 }}>{video.title}</h2>
+            {videoUrl ? (
+              <video src={videoUrl} controls autoPlay playsInline style={{ width: "100%", background: "#000", borderRadius: 8 }} poster={thumb} />
+            ) : (
+              <p>Sem URL de vídeo neste post</p>
+            )}
+            {video.caption ? <p>{video.caption}</p> : null}
+          </>
+        )}
       </div>
     </>
   );
