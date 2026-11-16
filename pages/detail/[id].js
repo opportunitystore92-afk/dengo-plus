@@ -32,21 +32,31 @@ export default function Detail({ video: initialVideo, id }) {
       });
   }, [finalId, video]);
 
-  const thumb = video?.thumbnail || video?.cover || video?.poster || "";
-  const title = video?.title || video?.caption || "Dengo Plus";
-  const desc = video?.caption || video?.description || "Vê este vídeo no Dengo Plus";
+ const rawThumb = video?.thumbnail || video?.cover || video?.poster || video?.image || video?.thumbnailUrl || "";
+const thumb = rawThumb
+  ? (rawThumb.startsWith("http") ? rawThumb : `https://main.dengo-plus.pages.dev${rawThumb.startsWith("/") ? "" : "/"}${rawThumb}`)
+  : "https://main.dengo-plus.pages.dev/logo.png";
+const title = video?.title || video?.caption || "Dengo Plus";
+const desc = video?.caption || video?.description || "Vê este vídeo no Dengo Plus";
+const videoUrl = video?.videoUrl || video?.url || video?.src || "";
 
-  return (
-    <>
-      <Head>
-        <title>{title}</title>
-        <meta property="og:type" content="website" />
-        <meta property="og:title" content={title} />
-        <meta property="og:description" content={desc} />
-        {thumb ? <meta property="og:image" content={thumb} /> : null}
-        {thumb ? <meta name="twitter:image" content={thumb} /> : null}
-        <meta name="twitter:card" content="summary_large_image" />
-      </Head>
+return (
+  <>
+    <Head>
+      <title>{title} - Dengo Plus</title>
+      <meta property="og:type" content="website" />
+      <meta property="og:title" content={title} />
+      <meta property="og:description" content={desc} />
+      <meta property="og:url" content={`https://main.dengo-plus.pages.dev/detail/${finalId}`} />
+      <meta property="og:image" content={thumb} />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content={title} />
+      <meta name="twitter:description" content={desc} />
+      <meta name="twitter:image" content={thumb} />
+      {videoUrl ? <meta property="og:video" content={videoUrl} /> : null}
+    </Head>
       <div>
         {video === false && <p>Vídeo não encontrado</p>}
         {video && <p>{video.title || video.caption}</p>}
