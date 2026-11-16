@@ -1,3 +1,7 @@
+import Link from "next/link";
+import Head from "next/head";
+import { useRouter } from "next/router";
+import { useEffect, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
@@ -75,7 +79,7 @@ export default function Detail() {
           <b>DEBUG WORKER - SEM FIREBASE:</b><br/>{debug}<br/>ID: {finalId || "nenhum"}
         </div>
         {loading && <p style={{marginTop: 16}}>A carregar vídeo... ID: {finalId}</p>}
-        {!loading && !video && <p style={{marginTop: 16}}>Vídeo não encontrado no Worker - ID: {finalId}<br/><a href="/">← Voltar para a home</a></p>}
+        {!loading && !video && <p style={{marginTop: 16}}>Vídeo não encontrado no Worker - ID: {finalId}<br/><Link href="/">← Voltar para a home</Link></p>}
         {!loading && video && (
           <>
             <h2 style={{ fontSize: 20 }}>@{video.username}</h2>
@@ -83,7 +87,7 @@ export default function Detail() {
             {videoUrl ? (
               <video src={videoUrl} controls autoPlay playsInline style={{ width: "100%", background: "#000", borderRadius: 8 }} />
             ) : <p>Sem URL de vídeo</p>}
-            <p style={{marginTop: 12}}><a href="/">← Voltar</a></p>
+           <p style={{marginTop: 12}}><Link href="/">← Voltar</Link></p>
           </>
         )}
       </div>
