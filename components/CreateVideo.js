@@ -13,7 +13,7 @@ export default function CreateVideo({ onClose, onPublish }) {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [facingMode, setFacingMode] = useState('user')
   const [username, setUsername] = useState('usuario')
-  
+  const [coverFile, setCoverFile] = useState(null);
   const videoRef = useRef(null)
   const previewVideoRef = useRef(null)
   const mediaRecorderRef = useRef(null)
@@ -160,17 +160,41 @@ export default function CreateVideo({ onClose, onPublish }) {
     setFacingMode(prev => (prev === 'user' ? 'environment' : 'user'))
   }
 
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0]
-    if (file) {
-      stopCameraTracks()
-      setVideoFile(file)
-      setVideoUrl((prev) => {
-        revokeOldUrl(prev)
-        return URL.createObjectURL(file)
-      })
-    }
+  const gerarCapaDoVideo = (arquivoVideo) => {
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
+    video.src = URL.createObjectURL(arquivoVideo);
+    video.onloadeddata = () => { video.currentTime = 1; };
+    video.onseeked = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      URL.revokeObjectURL(video.src);
+      canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.8);
+    };
+  });
+};
+
+const handleFileSelect = async (e) => {
+  const file = e.target.files[0]
+  if (file) {
+    stopCameraTracks()
+    setVideoFile(file)
+    setVideoUrl((prev) => {
+      revokeOldUrl(prev)
+      return URL.createObjectURL(file)
+    })
+    // NOVO: tira a capa sozinha e guarda
+    try {
+      const capa = await gerarCapaDoVideo(file);
+      setCoverFile(capa);
+    } catch (err) {}
   }
+}
 
   const handleClosePreview = () => {
     if (previewVideoRef.current) {
@@ -191,7 +215,8 @@ export default function CreateVideo({ onClose, onPublish }) {
       video.src = URL.createObjectURL(videoFile);
       video.muted = true;
       video.playsInline = true;
-      video.currentTime = 0.5;
+      video.preload = 'auto';
+video.onloadedmetadata = () => { try { video.currentTime = 0.5; } catch(e) {} };
       let resolved = false;
       const timer = setTimeout(() => {
         if (!resolved) {
@@ -260,7 +285,7 @@ export default function CreateVideo({ onClose, onPublish }) {
       }
 
       const permanentVideoUrl = `${WORKER_URL}/${videoKey}`
-      const permanentThumbnailUrl = thumbBlob ? `${WORKER_URL}/thumbnails/${newId}.jpg` : 'https://main.dengo-plus.pages.dev/logo.png'
+      const permanentThumbnailUrl = thumbBlob ? `${WORKER_URL}/thumbnails/${newId}.jpg` : '/logo.png'
       const avatar = typeof window !== 'undefined' ? localStorage.getItem('dengoo_avatar') : '/default-avatar.png'
 
       const postData = {
