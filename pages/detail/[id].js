@@ -70,11 +70,18 @@ export default function Detail() {
 
   return (
     <>
-      <Head><title>{video?.caption || "Dengo Plus"} - Dengo Plus</title></Head>
+      <Head>
+<title>{video?.caption || "Dengo Plus"} - Dengo Plus</title>
+<meta property="og:title" content={video?.caption || "Dengo Plus"} />
+<meta property="og:description" content={`Olha esse vídeo no Dengo: ${video?.caption || ""}`} />
+<meta property="og:image" content={thumb} />
+<meta property="og:url" content={`https://dengo-plus.pages.dev/detail/${finalId}`} />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content={thumb} />
+</Head>
       <div style={{ maxWidth: 800, margin: "0 auto", padding: 16, fontFamily: "sans-serif", color: "#000", background: "#fff", minHeight: "100vh" }}>
-        <div style={{ background: "#ffeeba", padding: 12, borderRadius: 8, fontSize: 13, wordBreak: "break-word" }}>
-          <b>DEBUG WORKER - SEM FIREBASE:</b><br/>{debug}<br/>ID: {finalId || "nenhum"}
-        </div>
+        
         {loading && <p style={{marginTop: 16}}>A carregar vídeo... ID: {finalId}</p>}
         {!loading && !video && <p style={{marginTop: 16}}>Vídeo não encontrado no Worker - ID: {finalId}<br/><Link href="/">← Voltar para a home</Link></p>}
         {!loading && video && (
