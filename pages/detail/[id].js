@@ -1,19 +1,33 @@
-export const runtime = 'experimental-edge';
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
+import { firestore } from "../../firebase/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 export async function getServerSideProps(context) {
   const { id } = context.params;
   try {
-    const res = await fetch("https://main.dengo-plus.pages.dev/videos.json");
-    const videos = await res.json();
-    const video = videos.find((x) => String(x.id) === String(id)) || null;
+    const snap = await getDoc(doc(firestore, "posts", String(id)));
+    if (!snap.exists()) {
+      return { props: { video: null, id: String(id) } };
+    }
+    const data = snap.data();
+    const video = {
+      id: snap.id,
+      title: data.title || data.titulo || data.caption || "Video Dengo",
+      titulo: data.title || data.titulo || data.caption || "Video Dengo",
+      caption: data.caption || data.title || data.titulo || "",
+      url: data.url || data.src || data.videoUrl || "",
+      src: data.url || data.src || data.videoUrl || "",
+      image: data.image || data.thumbnail || data.cover || data.poster || data.thumb || "",
+      thumbnail: data.image || data.thumbnail || data.cover || data.poster || data.thumb || "",
+    };
     return { props: { video, id: String(id) } };
   } catch (e) {
     return { props: { video: null, id: String(id) } };
   }
 }
+
 
 export default function Detail({ video: initialVideo, id }) {
   const router = useRouter();
@@ -22,14 +36,21 @@ export default function Detail({ video: initialVideo, id }) {
   const finalId = id || queryId;
 
   useEffect(() => {
-    if (video || !finalId) return;
-    fetch("https://main.dengo-plus.pages.dev/videos.json")
-      .then((r) => r.json())
-      .then((videos) => {
-        const v = videos.find((x) => String(x.id) === String(finalId));
-        setVideo(v || false);
+  if (video || !finalId) return;
+  getDoc(doc(firestore, "posts", String(finalId)))
+    .then((snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      setVideo({
+        id: snap.id,
+        title: data.title || data.titulo || data.caption || "Video Dengo",
+        url: data.url || data.src || data.videoUrl || "",
+        image: data.image || data.thumbnail || data.cover || "",
+        thumbnail: data.image || data.thumbnail || data.cover || "",
       });
-  }, [finalId, video]);
+    })
+    .catch(() => {});
+}, [finalId]);
 
  const rawThumb = video?.thumbnail || video?.cover || video?.poster || video?.image || video?.thumbnailUrl || "";
 const thumb = rawThumb
