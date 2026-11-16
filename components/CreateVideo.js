@@ -285,7 +285,7 @@ video.onloadedmetadata = () => { try { video.currentTime = 0.5; } catch(e) {} };
       }
 
       const permanentVideoUrl = `${WORKER_URL}/${videoKey}`
-      const permanentThumbnailUrl = thumbBlob ? `${WORKER_URL}/thumbnails/${newId}.jpg` : '/logo.png'
+      const permanentThumbnailUrl = thumbBlob ? `${WORKER_URL}/thumbnails/${newId}.jpg` : 'https://dengo-plus.pages.dev/logo.png'
       const avatar = typeof window !== 'undefined' ? localStorage.getItem('dengoo_avatar') : '/default-avatar.png'
 
       const postData = {
