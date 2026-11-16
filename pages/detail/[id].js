@@ -2,9 +2,6 @@ import Link from "next/link";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import Head from "next/head";
-import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
 
 const WORKER_URL = 'https://dengo-upload-worker.dnctraderoperation.workers.dev';
 
