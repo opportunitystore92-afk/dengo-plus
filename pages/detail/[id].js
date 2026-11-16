@@ -1,4 +1,4 @@
-export const config = { runtime: 'edge' };
+export const config = { runtime: 'experimental-edge' };
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
