@@ -1,59 +1,137 @@
 import { NextResponse } from 'next/server';
 
-function achaImagem(obj, vistos = new Set()) {
-  if (!obj || typeof obj !== 'object' || vistos.has(obj)) return null;
-  vistos.add(obj);
-  // 1º: procura campo que parece capa
-  for (const [k, v] of Object.entries(obj)) {
-    if (typeof v === 'string' && v.startsWith('http') && /thumbnail|thumb|cover|poster|preview|image|img|photo|pic/i.test(k)) return v;
+const SITE = 'https://dengo-plus.pages.dev';
+const API = 'https://dengo-upload-worker.dnctraderoperation.workers.dev/posts';
+const FALLBACK_IMAGE = `${SITE}/logo.png`;
+
+const BOT_RE =
+  /facebookexternalhit|facebot|whatsapp|twitterbot|telegrambot|linkedinbot|slackbot|discordbot|skypeuripreview|pinterest/i;
+const IMG_RE = /\.(jpe?g|png|webp|gif|avif)(\?.*)?$/i;
+const VIDEO_RE = /\.(mp4|webm|mov|m4v)(\?.*)?$/i;
+// avatar do usuário nunca pode virar capa do vídeo
+const SKIP_KEYS = /^(profile_image|avatar|profile_picture)$/i;
+
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function abs(u) {
+  try {
+    return new URL(u, SITE).toString();
+  } catch {
+    return null;
   }
-  // 2º: procura qualquer link de imagem
-  for (const v of Object.values(obj)) {
-    if (typeof v === 'string' && v.startsWith('http') && /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(v)) return v;
+}
+
+// busca recursiva: devolve a primeira string que bate com o regex, em qualquer nível
+function findUrl(node, re, depth = 0) {
+  if (node == null || depth > 6) return null;
+  if (typeof node === 'string') return re.test(node) ? node : null;
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const r = findUrl(item, re, depth + 1);
+      if (r) return r;
+    }
+    return null;
   }
-  // 3º: entra dentro de objetos / arrays
-  for (const v of Object.values(obj)) {
-    const r = achaImagem(v, vistos);
-    if (r) return r;
+  if (typeof node === 'object') {
+    for (const [k, v] of Object.entries(node)) {
+      if (SKIP_KEYS.test(k)) continue;
+      const r = findUrl(v, re, depth + 1);
+      if (r) return r;
+    }
   }
   return null;
 }
 
-export async function middleware(request) {
-  const url = request.nextUrl;
-  const ua = request.headers.get('user-agent') || '';
-  const isBot = /WhatsApp|facebookexternalhit|Twitterbot|TelegramBot|Discordbot|Slackbot|LinkedInBot|Googlebot|bingbot/i.test(ua);
-  if (!isBot || !url.pathname.startsWith('/detail/')) return NextResponse.next();
-
-  const fullId = url.pathname.split('/detail/')[1]?.split('/')[0] || '';
-  const shortId = fullId.split('-').pop();
-
-  let thumb = 'https://dengo-plus.pages.dev/logo.png';
-  let title = 'Dengo Plus';
-  let desc = 'Ve os videos mais quentes e divertidos no Dengo Plus.';
-
+// ID completo OU ID curto (depois do último "-"). Sem fallback para o primeiro post.
+function matchPost(posts, rawId) {
+  let id = rawId;
   try {
-    const res = await fetch('https://dengo-upload-worker.dnctraderoperation.workers.dev/posts', { headers: { 'Accept': 'application/json' } });
-    if (res.ok) {
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : (data.posts || data.data || data.items || []);
-      const p = list.find(x => {
-        const candidates = [x.id, x.postId, x._id, x.slug, x.key].map(v => String(v || ''));
-        return candidates.some(c => c === fullId || c === shortId || fullId.includes(c) || c.includes(shortId) || c.endsWith(shortId));
-      });
-      if (p) {
-        const img = achaImagem(p);
-        if (img) thumb = img;
-        if (p.caption || p.title) { title = p.caption || p.title; desc = p.caption || p.title; }
-        if (p.description) desc = p.description;
-      }
-    }
-  } catch (e) {}
-
-  const safeTitle = String(title).replace(/"/g, '').replace(/</g, '');
-  const safeDesc = String(desc).replace(/"/g, '').replace(/</g, '');
-  const safeThumb = String(thumb).replace(/"/g, '');
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${safeTitle} - Dengo Plus</title><meta property="og:type" content="website" /><meta property="og:title" content="${safeTitle}" /><meta property="og:description" content="${safeDesc}" /><meta property="og:image" content="${safeThumb}" /><meta property="og:image:secure_url" content="${safeThumb}" /><meta property="og:image:width" content="1200" /><meta property="og:image:height" content="630" /><meta property="og:url" content="https://dengo-plus.pages.dev/detail/${fullId}" /><meta property="og:site_name" content="Dengo Plus" /><meta name="twitter:card" content="summary_large_image" /><meta name="twitter:title" content="${safeTitle}" /><meta name="twitter:description" content="${safeDesc}" /><meta name="twitter:image" content="${safeThumb}" /></head><body>Redirecionando...</body></html>`;
-  return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8', 'Cache-Control': 'no-cache' } });
+    id = decodeURIComponent(rawId);
+  } catch {}
+  const exact = posts.find((p) => String(p.id) === id);
+  if (exact) return exact;
+  const short = id.includes('-') ? id.slice(id.lastIndexOf('-') + 1) : id;
+  if (!short) return null;
+  return (
+    posts.find((p) => String(p.id) === short || String(p.id).endsWith('-' + short)) || null
+  );
 }
-export const config = { matcher: ['/detail/:path*'] };
+
+function html(res) {
+  return new Response(res, {
+    status: 200,
+    headers: {
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-cache',
+    },
+  });
+}
+
+export async function middleware(request) {
+  const ua = request.headers.get('user-agent') || '';
+  if (!BOT_RE.test(ua)) return NextResponse.next();
+
+  const { pathname } = new URL(request.url);
+  const rawId = pathname.split('/')[2];
+  if (!rawId) return NextResponse.next();
+
+  let post = null;
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5000);
+    const r = await fetch(API, { signal: ctrl.signal, cache: 'no-store' });
+    clearTimeout(t);
+    const data = await r.json();
+    const posts = Array.isArray(data) ? data : data.posts || data.data || [];
+    post = matchPost(posts, rawId);
+  } catch {
+    return NextResponse.next();
+  }
+  if (!post) return NextResponse.next();
+
+  const title = post.caption && post.caption.trim() ? post.caption.trim() : 'Dengo Plus';
+  const description = `Vídeo de @${post.username || 'dengo'} no Dengo Plus`;
+  const pageUrl = `${SITE}/detail/${encodeURIComponent(rawId)}`;
+
+  const imageRaw = findUrl(post, IMG_RE);
+  const image = (imageRaw && abs(imageRaw)) || FALLBACK_IMAGE;
+
+  const videoRaw = findUrl(post, VIDEO_RE);
+  const video = videoRaw ? abs(videoRaw) : null;
+
+  const videoTags = video
+    ? `
+<meta property="og:video" content="${esc(video)}">
+<meta property="og:video:secure_url" content="${esc(video)}">
+<meta property="og:video:type" content="video/mp4">`
+    : '';
+
+  return html(`<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>${esc(title)}</title>
+<meta property="og:site_name" content="Dengo Plus">
+<meta property="og:type" content="${video ? 'video.other' : 'website'}">
+<meta property="og:url" content="${esc(pageUrl)}">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(description)}">
+<meta property="og:image" content="${esc(image)}">${videoTags}
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${esc(title)}">
+<meta name="twitter:description" content="${esc(description)}">
+<meta name="twitter:image" content="${esc(image)}">
+</head>
+<body><a href="${esc(pageUrl)}">${esc(title)}</a></body>
+</html>`);
+}
+
+export const config = {
+  matcher: ['/detail/:path*'],
+};
