@@ -262,23 +262,12 @@ export default function HomeFeed() {
     return () => { cancelled = true; };
   }, []);
 
-  const handleNewVideo = async (newVideoData, videoFile) => {
-    if (!videoFile || !videoFile.type.startsWith('video/')) throw new Error('O arquivo de vídeo não foi recebido corretamente.');
-    const id = String(newVideoData.id || crypto.randomUUID());
-    const extension = getVideoExtension(videoFile);
-    const key = `videos/${id}.${extension}`;
-    const uploadResponse = await fetch(`${WORKER_URL}/${key}`, { method: 'PUT', headers: { 'Content-Type': videoFile.type || 'video/mp4' }, body: videoFile });
-    const uploadResult = await uploadResponse.json().catch(() => ({}));
-    if (!uploadResponse.ok || !uploadResult.success) throw new Error(uploadResult.error || 'Não foi possível enviar o arquivo de vídeo.');
-    const permanentVideoUrl = `${WORKER_URL}/${key}`;
-    const post = { id, username: newVideoData.username || 'meu_perfil', profileImage: newVideoData.profileImage || newVideoData.avatar || '/default-avatar.png', caption: newVideoData.caption || 'Novo vídeo publicado!', videoUrl: permanentVideoUrl, topic: newVideoData.topic || null };
-    const response = await fetch(`${WORKER_URL}/posts`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(post) });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.success) throw new Error(result.error || `HTTP ${response.status}`);
-    setVideosList((current) => [normalizePost(post), ...current.filter((item) => item.id !== post.id)]);
-    setFeedError('');
-    setTimeout(() => { if (feedContainerRef.current) feedContainerRef.current.scrollTop = 0; }, 100);
-  };
+  const handleNewVideo = (newVideoData) => {
+  if (!newVideoData) return;
+  setVideosList((current) => [normalizePost(newVideoData), ...current.filter((item) => item.id !== newVideoData.id)]);
+  setFeedError('');
+  setTimeout(() => { if (feedContainerRef.current) feedContainerRef.current.scrollTop = 0; }, 100);
+};
 
   return (
     <div className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-black">

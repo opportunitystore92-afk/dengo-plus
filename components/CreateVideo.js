@@ -385,7 +385,12 @@ setCaption('')
               disabled={uploading} 
               className="w-full bg-red-600 text-white py-3.5 rounded-xl font-bold text-lg shadow-lg active:opacity-90 relative overflow-hidden"
             >
-              {uploading ? 'A publicar...' : 'Publicar'}
+              {uploading ? (
+  <span className="flex items-center justify-center gap-2">
+    <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
+    Publicando...
+  </span>
+) : 'Publicar'}
             </button>
           </div>
         </div>
