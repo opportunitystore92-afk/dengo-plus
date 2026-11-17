@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { IoClose, IoCameraReverseOutline, IoImageOutline } from 'react-icons/io5'
+import { captureThumbnail } from './captureThumbnail'
 
-const WORKER_URL = 'https://dengo-upload-worker.dnctraderoperation.workers.dev'
-
-export default function CreateVideo({ onClose, onPublish }) {
+export default function CreateVideo({ onClose }) {
   const [videoFile, setVideoFile] = useState(null)
   const [videoUrl, setVideoUrl] = useState('')
   const [caption, setCaption] = useState('')
@@ -12,33 +11,24 @@ export default function CreateVideo({ onClose, onPublish }) {
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [facingMode, setFacingMode] = useState('user')
-  const [username, setUsername] = useState('usuario')
-  const [coverFile, setCoverFile] = useState(null);
+  
   const videoRef = useRef(null)
   const previewVideoRef = useRef(null)
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
   const router = useRouter()
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setUsername(localStorage.getItem('dengoo_username') || 'usuario')
+useEffect(() => {
+  document.querySelectorAll('video').forEach(v => {
+    if (v !== previewVideoRef.current) {
+      v.pause()
+      v.muted = true
     }
-  }, [])
-
-  useEffect(() => {
-    document.querySelectorAll('video').forEach(v => {
-      if (v !== previewVideoRef.current) {
-        v.pause()
-        v.muted = true
-      }
-    })
-    return () => {
-      if (videoUrl) URL.revokeObjectURL(videoUrl)
-      if (previewVideoRef.current) previewVideoRef.current.pause()
-    }
-  }, [])
-
+  })
+  return () => {
+    if (videoUrl) URL.revokeObjectURL(videoUrl)
+    if (previewVideoRef.current) previewVideoRef.current.pause()
+  }
+}, [])
   const stopCameraTracks = () => {
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject
@@ -56,7 +46,7 @@ export default function CreateVideo({ onClose, onPublish }) {
     }
   }
 
-  // --- CORREÇÃO SOM DO FEED ---
+  // --- CORREÇÃO SOM DO FEED: fica a calar o feed enquanto a câmara está aberta ---
   useEffect(() => {
     const silenceFeed = () => {
       document.querySelectorAll('video').forEach((v) => {
@@ -75,6 +65,7 @@ export default function CreateVideo({ onClose, onPublish }) {
   useEffect(() => {
     let isMounted = true
     if (videoUrl) return
+
     const initCamera = async () => {
       await new Promise(resolve => setTimeout(resolve, 300))
       if (!isMounted) return
@@ -82,10 +73,11 @@ export default function CreateVideo({ onClose, onPublish }) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: facingMode },
-          audio: true
+          audio: false
         })
         if (isMounted && videoRef.current) {
           videoRef.current.srcObject = stream
+          videoRef.current.muted = true
           await videoRef.current.play().catch(() => {})
         } else {
           stream.getTracks().forEach(track => track.stop())
@@ -105,14 +97,14 @@ export default function CreateVideo({ onClose, onPublish }) {
     }
   }, [facingMode, videoUrl])
 
-  useEffect(() => {
-    if (!videoUrl) return
-    const v = previewVideoRef.current
-    if (!v) return
-    v.muted = true
-    v.loop = true
-    v.play().catch(() => {})
-  }, [videoUrl])
+useEffect(() => {
+  if (!videoUrl) return
+  const v = previewVideoRef.current
+  if (!v) return
+  v.muted = true
+  v.loop = true
+  v.play().catch(() => {})
+}, [videoUrl])
 
   useEffect(() => {
     return () => {
@@ -160,41 +152,17 @@ export default function CreateVideo({ onClose, onPublish }) {
     setFacingMode(prev => (prev === 'user' ? 'environment' : 'user'))
   }
 
-  const gerarCapaDoVideo = (arquivoVideo) => {
-  return new Promise((resolve) => {
-    const video = document.createElement('video');
-    video.preload = 'metadata';
-    video.muted = true;
-    video.playsInline = true;
-    video.src = URL.createObjectURL(arquivoVideo);
-    video.onloadeddata = () => { video.currentTime = 1; };
-    video.onseeked = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      canvas.getContext('2d').drawImage(video, 0, 0);
-      URL.revokeObjectURL(video.src);
-      canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.8);
-    };
-  });
-};
-
-const handleFileSelect = async (e) => {
-  const file = e.target.files[0]
-  if (file) {
-    stopCameraTracks()
-    setVideoFile(file)
-    setVideoUrl((prev) => {
-      revokeOldUrl(prev)
-      return URL.createObjectURL(file)
-    })
-    // NOVO: tira a capa sozinha e guarda
-    try {
-      const capa = await gerarCapaDoVideo(file);
-      setCoverFile(capa);
-    } catch (err) {}
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      stopCameraTracks()
+      setVideoFile(file)
+      setVideoUrl((prev) => {
+        revokeOldUrl(prev)
+        return URL.createObjectURL(file)
+      })
+    }
   }
-}
 
   const handleClosePreview = () => {
     if (previewVideoRef.current) {
@@ -208,112 +176,79 @@ const handleFileSelect = async (e) => {
     setVideoFile(null)
   }
 
-  // ===== AQUI ESTÁ O MOTOR BOM DO ATUAL - SÓ A MINIATURA =====
-  const generateThumbnail = (videoFile) => {
-    return new Promise((resolve) => {
-      const video = document.createElement('video');
-      video.src = URL.createObjectURL(videoFile);
-      video.muted = true;
-      video.playsInline = true;
-      video.preload = 'auto';
-video.onloadedmetadata = () => { try { video.currentTime = 0.5; } catch(e) {} };
-      let resolved = false;
-      const timer = setTimeout(() => {
-        if (!resolved) {
-          resolved = true;
-          resolve(null);
-        }
-      }, 2000);
-      video.onseeked = () => {
-        if (resolved) return;
-        resolved = true;
-        clearTimeout(timer);
-        try {
-          const canvas = document.createElement('canvas');
-          canvas.width = video.videoWidth || 720;
-          canvas.height = video.videoHeight || 1280;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          canvas.toBlob((blob) => {
-            resolve(blob);
-          }, 'image/jpeg', 0.85);
-        } catch (err) {
-          resolve(null);
-        }
-      };
-      video.onerror = () => {
-        if (!resolved) {
-          resolved = true;
-          clearTimeout(timer);
-          resolve(null);
-        }
-      };
-    });
-  };
-
-  // ===== UPLOAD NOVO COM MINIATURA - substitui o antigo =====
-  const handleUpload = async () => {
+  const handleUpload = () => {
     if (!videoFile) return
     if (previewVideoRef.current) {
       previewVideoRef.current.pause()
     }
-    try {
-      setUploading(true)
-      setUploadProgress(0)
-      const newId = String(Date.now() + '-' + Math.floor(Math.random() * 1000000))
-
-      // 1. Gera miniatura
-      const thumbBlob = await generateThumbnail(videoFile)
-      if (thumbBlob) {
-        await fetch(`${WORKER_URL}/thumbnails/${newId}.jpg`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'image/jpeg' },
-          body: thumbBlob
-        }).catch(() => {})
+    setUploading(true)
+    setUploadProgress(0)
+    const fileName = Date.now() + '-' + (videoFile.name || 'video.mp4')
+    const workerUrl = 'https://dengo-upload-worker.dnctraderoperation.workers.dev'
+    const xhr = new XMLHttpRequest()
+    xhr.open('PUT', workerUrl + '/' + fileName, true)
+    xhr.setRequestHeader('Content-Type', videoFile.type || 'video/mp4')
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        const percent = Math.round((e.loaded / e.total) * 100)
+        setUploadProgress(percent)
       }
+    }
+    xhr.onload = async () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          // --- CAPA: gera um JPG de um frame do vídeo (galeria ou câmara).
+          // Se falhar, publica na mesma, só sem capa (thumbnail_url = null).
+          let thumbnailUrl = null
+          try {
+            const thumbBlob = await captureThumbnail(videoFile)
+            const thumbName = fileName
+              .replace(/\.[^.]+$/, '')
+              .replace(/[^a-zA-Z0-9._-]/g, '_')
+            const thumbUrl = workerUrl + '/thumbs/' + thumbName + '.jpg'
+            const thumbRes = await fetch(thumbUrl, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'image/jpeg' },
+              body: thumbBlob
+            })
+            if (thumbRes.ok) thumbnailUrl = thumbUrl
+          } catch (thumbErr) {
+            console.warn('A publicar sem capa:', thumbErr)
+          }
 
-      // 2. Envia vídeo
-      const videoKey = `videos/${newId}.mp4`
-      const uploadResponse = await fetch(`${WORKER_URL}/${videoKey}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': videoFile.type || 'video/mp4' },
-        body: videoFile
-      })
-      const uploadResult = await uploadResponse.json().catch(() => ({}))
-      if (!uploadResponse.ok || !uploadResult.success) {
-        throw new Error(uploadResult.error || 'Erro ao enviar o vídeo.')
+          const postRes = await fetch(workerUrl + '/posts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: fileName,
+              username: 'dengo.oficial',
+              caption: caption,
+              video_url: workerUrl + '/' + fileName,
+              thumbnail_url: thumbnailUrl
+            })
+          })
+          if (postRes.ok) {
+            onClose()
+            router.reload()
+          } else {
+            alert('Erro ao guardar o post.')
+            setUploading(false)
+          }
+        } catch (err) {
+          console.error(err)
+          alert('Erro ao guardar o post.')
+          setUploading(false)
+        }
+      } else {
+        alert('Erro ao publicar.')
+        setUploading(false)
       }
-
-      const permanentVideoUrl = `${WORKER_URL}/${videoKey}`
-      const permanentThumbnailUrl = thumbBlob ? `${WORKER_URL}/thumbnails/${newId}.jpg` : 'https://dengo-plus.pages.dev/logo.png'
-      const avatar = typeof window !== 'undefined' ? localStorage.getItem('dengoo_avatar') : '/default-avatar.png'
-
-      const postData = {
-        id: newId,
-        username: username,
-        caption: caption || 'Novo vídeo no Dengo Plus!',
-        videoUrl: permanentVideoUrl,
-        thumbnailUrl: permanentThumbnailUrl,
-        profileImage: avatar || '/default-avatar.png'
-      }
-
-      await fetch(`${WORKER_URL}/posts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(postData)
-      })
-
-     setUploading(false)
-if (onPublish) { onPublish(postData, videoFile) }
-if (onClose) { onClose() }
-setVideoFile(null)
-setVideoUrl(null)
-setCaption('')
-    } catch (err) {
-      console.error(err)
-      alert('Erro: ' + err.message)
+    }
+    xhr.onerror = () => {
+      alert('Erro de rede ao publicar.')
       setUploading(false)
     }
+    xhr.send(videoFile)
   }
 
   return (
@@ -348,7 +283,7 @@ setCaption('')
               onClick={toggleRecording} 
               className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center p-1 bg-transparent active:scale-95 transition-transform"
             >
-              <div className={`w-full h-full rounded-full transition-all ${isRecording ? 'bg-red-600 scale-50 rounded-lg' : 'bg-red-600'}`} />
+              <div className={'w-full h-full rounded-full transition-all ' + (isRecording ? 'bg-red-600 scale-50 rounded-lg' : 'bg-red-600')} />
             </button>
             <div className="w-12" />
           </div>
@@ -356,22 +291,23 @@ setCaption('')
       ) : (
         <div className="relative w-full h-full flex flex-col bg-black z-30">
           <video
-            key={videoUrl}
-            ref={previewVideoRef}
-            src={videoUrl}
-            playsInline
-            preload="auto"
-            autoPlay
-            muted
-            loop
-            style={{ transform: 'none' }}
-            className="w-full h-full object-cover"
-          />
+  key={videoUrl}
+  ref={previewVideoRef}
+  src={videoUrl}
+  playsInline
+  preload="auto"
+  autoPlay
+  muted
+  loop
+  style={{ transform: 'none' }}
+  className="w-full h-full object-cover"
+/>
           <div className="absolute top-4 left-4 z-40">
             <button onClick={handleClosePreview} className="bg-black/60 p-2.5 rounded-full text-white">
               <IoClose size={26} />
             </button>
           </div>
+         
           <div className="absolute bottom-0 left-0 right-0 p-4 pb-8 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col gap-3 z-40">
             <input 
               type="text" 
@@ -386,11 +322,16 @@ setCaption('')
               className="w-full bg-red-600 text-white py-3.5 rounded-xl font-bold text-lg shadow-lg active:opacity-90 relative overflow-hidden"
             >
               {uploading ? (
-  <span className="flex items-center justify-center gap-2">
-    <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
-    Publicando...
-  </span>
-) : 'Publicar'}
+                <>
+                  <div 
+                    className="absolute left-0 top-0 bottom-0 bg-red-800 transition-all duration-200" 
+                    style={{ width: uploadProgress + '%' }} 
+                  />
+                  <span className="relative z-10">A publicar ({uploadProgress}%)</span>
+                </>
+              ) : (
+                'Publicar'
+              )}
             </button>
           </div>
         </div>
