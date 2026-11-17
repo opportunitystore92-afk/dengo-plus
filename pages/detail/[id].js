@@ -5,12 +5,52 @@ import { useEffect, useState } from "react";
 
 const WORKER_URL = 'https://dengo-upload-worker.dnctraderoperation.workers.dev';
 
-export default function Detail() {
+export async function getServerSideProps(context) {
+  const id = context.params?.id || context.query?.id || "";
+  let serverVideo = null;
+  try {
+    const r = await fetch(`${WORKER_URL}/posts/${encodeURIComponent(id)}`);
+    if (r.ok) {
+      const one = await r.json();
+      const v = one?.post || one?.data || one;
+      if (v && (v.videoUrl || v.video_url || v.mediaUrl)) {
+        serverVideo = {
+          id: String(v.id || id),
+          username: v.username || "usuario",
+          caption: v.caption || "",
+          videoUrl: v.videoUrl || v.video_url || v.mediaUrl || "",
+          thumbnailUrl: v.thumbnailUrl || v.thumbnail_url || v.thumb || "",
+          avatar: v.avatar || v.profileImage || "/default-avatar.png",
+        };
+      }
+    }
+    if (!serverVideo) {
+      const r2 = await fetch(`${WORKER_URL}/posts`);
+      if (r2.ok) {
+        const data = await r2.json();
+        const list = Array.isArray(data) ? data : (data.posts || data.data || []);
+        const found = list.find((p) => String(p.id) === String(id));
+        if (found) {
+          serverVideo = {
+            id: String(found.id),
+            username: found.username || "usuario",
+            caption: found.caption || "",
+            videoUrl: found.videoUrl || found.video_url || found.mediaUrl || "",
+            thumbnailUrl: found.thumbnailUrl || found.thumbnail_url || found.thumb || "",
+            avatar: found.avatar || found.profileImage || "/default-avatar.png",
+          };
+        }
+      }
+    }
+  } catch (e) {}
+  return { props: { serverVideo, serverId: String(id) } };
+}
+
+export default function Detail({ serverVideo, serverId }) {
   const router = useRouter();
-  const [video, setVideo] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [finalId, setFinalId] = useState(null);
-  const [debug, setDebug] = useState("a iniciar - SEM Firebase, a usar Worker...");
+  const [video, setVideo] = useState(serverVideo || null);
+  const [loading, setLoading] = useState(!serverVideo);
+  const [finalId, setFinalId] = useState(serverId || null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -22,16 +62,13 @@ export default function Detail() {
   }, [router.query]);
 
   useEffect(() => {
-    if (!finalId) return;
-    setDebug("A buscar no Worker: " + WORKER_URL + "/posts | id procurado: " + finalId);
-
+    if (video || !finalId) return;
     fetch(`${WORKER_URL}/posts/${encodeURIComponent(finalId)}`)
       .then(async (r) => {
         if (!r.ok) throw new Error("posts/id deu HTTP " + r.status);
         const one = await r.json();
         const v = one?.post || one?.data || one;
         if (v && (v.videoUrl || v.video_url || v.mediaUrl)) {
-          setDebug("Achou direto em /posts/" + finalId);
           setVideo({ id: String(v.id || finalId), username: v.username || "usuario", caption: v.caption || "", videoUrl: v.videoUrl || v.video_url || v.mediaUrl || "", thumbnailUrl: v.thumbnailUrl || v.thumbnail_url || v.thumb || "", avatar: v.avatar || v.profileImage || "/default-avatar.png" });
           setLoading(false);
           return true;
@@ -39,29 +76,18 @@ export default function Detail() {
         throw new Error("posts/id nao trouxe videoUrl");
       })
       .catch(() => {
-        setDebug("Nao achou direto, a buscar lista toda igual a home...");
         return fetch(`${WORKER_URL}/posts`)
           .then(async (r) => {
-            if (!r.ok) throw new Error("lista /posts deu HTTP " + r.status);
             const data = await r.json();
             const list = Array.isArray(data) ? data : (data.posts || data.data || []);
-            setDebug("Lista veio com " + list.length + " videos. A procurar id " + finalId + " | ids: " + list.slice(0,5).map(p=>p.id).join(", "));
             const found = list.find((p) => String(p.id) === String(finalId));
-            if (!found) {
-              setDebug("NAO ACHOU na lista. Total " + list.length + ". Esse id nao existe no Worker. Ids primeiros: " + list.slice(0,5).map(p=>p.id).join(", "));
-              setLoading(false);
-              return;
-            }
-            setDebug("ACHOU na lista! caption: " + (found.caption || ""));
+            if (!found) { setLoading(false); return; }
             setVideo({ id: String(found.id), username: found.username || "usuario", caption: found.caption || "", videoUrl: found.videoUrl || found.video_url || found.mediaUrl || "", thumbnailUrl: found.thumbnailUrl || found.thumbnail_url || found.thumb || "", avatar: found.avatar || found.profileImage || "/default-avatar.png" });
             setLoading(false);
           })
-          .catch((err) => {
-            setDebug("ERRO Worker: " + err.message);
-            setLoading(false);
-          });
+          .catch(() => setLoading(false));
       });
-  }, [finalId]);
+  }, [finalId, video]);
 
   const videoUrl = video?.videoUrl || "";
   const thumb = video?.thumbnailUrl || "https://dengo-plus.pages.dev/logo.png";
