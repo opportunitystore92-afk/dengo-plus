@@ -189,7 +189,7 @@ function FeedVideoItem({ video, onShare, onComment, onRequireAuth, isActive}) {
         className="absolute inset-0 h-full w-full object-cover bg-black" 
       />
             {/* Barra de progresso */}
-      <div className="absolute inset-x-0 bottom-0 z-30 px-3 pb-[110px] pointer-events-none">
+      <div className="absolute inset-x-0 bottom-0 z-30 px-3 pb-[85px] pointer-events-none">
         <div className="flex items-center gap-2">
           <div className="flex-1 h-[4px] bg-white/30 rounded-full overflow-hidden">
             <div className="h-full bg-red-600 transition-all" style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }} />
