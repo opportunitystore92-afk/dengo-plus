@@ -8,7 +8,7 @@ function normalizePost(post) {
   return {
     ...post,
     id: String(post.id || Math.random()),
-    username: post.username || 'usuario',
+    username: post.username || 'Dengo Oficial',
     caption: post.caption || 'Novo vídeo publicado!',
     videoUrl: post.videoUrl || post.video_url || post.mediaUrl || '',
     avatar: post.avatar || post.profileImage || post.profile_image || '/default-avatar.png',
