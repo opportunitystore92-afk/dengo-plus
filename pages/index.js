@@ -155,6 +155,9 @@ function CommentSheet({ video, onClose, onRequireAuth }) {
 }
 
 function FeedVideoItem({ video, onShare, onComment, onRequireAuth, isActive}) {
+    const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const formatTime = (t) => { if (!t || isNaN(t)) return "0:00"; const m = Math.floor(t / 60); const s = Math.floor(t % 60); return `${m}:${s.toString().padStart(2, "0")}`; };
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [muted, setMuted] = useState(false);
@@ -176,13 +179,24 @@ function FeedVideoItem({ video, onShare, onComment, onRequireAuth, isActive}) {
       <video 
         ref={videoRef} 
         src={video.videoUrl} 
-        muted={muted} 
+        muted={muted}
+                onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
+        onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)} 
         preload="metadata" 
         playsInline 
         loop 
         onClick={() => { if (videoRef.current.paused) videoRef.current.play(); else videoRef.current.pause(); }} 
         className="absolute inset-0 h-full w-full object-cover bg-black" 
       />
+            {/* Barra de progresso */}
+      <div className="absolute inset-x-0 bottom-0 z-30 px-3 pb-[110px] pointer-events-none">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-[4px] bg-white/30 rounded-full overflow-hidden">
+            <div className="h-full bg-red-600 transition-all" style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }} />
+          </div>
+          <span className="text-[11px] font-medium text-white drop-shadow">{formatTime(currentTime)} / {formatTime(duration)}</span>
+        </div>
+      </div>
    
       <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-4 pb-24">
         <p className="font-semibold">@{video.username}</p>
