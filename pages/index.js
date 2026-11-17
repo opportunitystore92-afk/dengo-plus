@@ -8,7 +8,7 @@ function normalizePost(post) {
   return {
     ...post,
     id: String(post.id || Math.random()),
-    username: post.username || 'Dengo Oficial',
+    username: post.username && post.username !== 'usuario' ? post.username : 'Dengo Oficial',
     caption: post.caption || 'Novo vídeo publicado!',
     videoUrl: post.videoUrl || post.video_url || post.mediaUrl || '',
     avatar: post.avatar || post.profileImage || post.profile_image || '/default-avatar.png',
@@ -201,8 +201,8 @@ function FeedVideoItem({ video, onShare, onComment, onRequireAuth, isActive}) {
            <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-4 pb-24 text-white">
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center font-bold text-white overflow-hidden shrink-0">
-            {video.avatarUrl ? <img src={video.avatarUrl} alt="" className="w-full h-full object-cover" /> : "D"}
-          </div>
+            {video.avatar ? <img src={video.avatar} alt="" className="w-full h-full object-cover" /> : "D"}
+          </div
           <p className="font-semibold">@{video.username || "dengo Oficial"}</p>
         </div>
         <p className="text-sm text-zinc-300 mt-1">{video.caption}</p>
