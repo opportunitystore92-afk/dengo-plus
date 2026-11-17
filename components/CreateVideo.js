@@ -82,7 +82,7 @@ export default function CreateVideo({ onClose, onPublish }) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: facingMode },
-          audio: false
+          audio: true
         })
         if (isMounted && videoRef.current) {
           videoRef.current.srcObject = stream
