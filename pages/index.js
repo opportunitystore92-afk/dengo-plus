@@ -172,7 +172,7 @@ function FeedVideoItem({ video, onShare, onComment, onRequireAuth, isActive}) {
   }, [isActive]);
 
   return (
-    <div className="relative flex h-[100dvh] w-full shrink-0 flex-col justify-between overflow-hidden bg-black snap-start snap-always">
+    <div className="relative flex h-[100dvh] w-full shrink-0 flex-col justify-between overflow-hidden bg-black snap-start md:max-w-[420px] md:mx-auto md:my-4 md:h-[calc(100dvh-32px)] md:rounded-2xl md:border md:border-zinc-800">
       <video 
         ref={videoRef} 
         src={video.videoUrl} 
