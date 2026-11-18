@@ -17,18 +17,20 @@ export default function CreateVideo({ onClose }) {
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
   const router = useRouter()
-useEffect(() => {
-  document.querySelectorAll('video').forEach(v => {
-    if (v !== previewVideoRef.current) {
-      v.pause()
-      v.muted = true
+
+  useEffect(() => {
+    document.querySelectorAll('video').forEach(v => {
+      if (v !== previewVideoRef.current) {
+        v.pause()
+        v.muted = true
+      }
+    })
+    return () => {
+      if (videoUrl) URL.revokeObjectURL(videoUrl)
+      if (previewVideoRef.current) previewVideoRef.current.pause()
     }
-  })
-  return () => {
-    if (videoUrl) URL.revokeObjectURL(videoUrl)
-    if (previewVideoRef.current) previewVideoRef.current.pause()
-  }
-}, [])
+  }, [])
+
   const stopCameraTracks = () => {
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject
@@ -73,7 +75,10 @@ useEffect(() => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: facingMode },
-          audio: false
+          audio: true
+        })
+        stream.getAudioTracks().forEach(track => {
+          track.enabled = true
         })
         if (isMounted && videoRef.current) {
           videoRef.current.srcObject = stream
@@ -97,14 +102,17 @@ useEffect(() => {
     }
   }, [facingMode, videoUrl])
 
-useEffect(() => {
-  if (!videoUrl) return
-  const v = previewVideoRef.current
-  if (!v) return
-  v.muted = true
-  v.loop = true
-  v.play().catch(() => {})
-}, [videoUrl])
+  useEffect(() => {
+    if (!videoUrl) return
+    const v = previewVideoRef.current
+    if (!v) return
+    v.muted = false
+    v.loop = true
+    v.play().catch(() => {
+      v.muted = true
+      v.play().catch(() => {})
+    })
+  }, [videoUrl])
 
   useEffect(() => {
     return () => {
@@ -122,11 +130,18 @@ useEffect(() => {
       chunksRef.current = []
       const stream = videoRef.current?.srcObject
       if (!stream) return
-      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus') 
-        ? 'video/webm;codecs=vp8,opus' 
-        : 'video/webm'
+      stream.getAudioTracks().forEach(track => {
+        track.enabled = true
+      })
+      const mimeType = [
+        'video/mp4',
+        'video/webm;codecs=vp8,opus',
+        'video/webm'
+      ].find(type => MediaRecorder.isTypeSupported(type))
       try {
-        mediaRecorderRef.current = new MediaRecorder(stream, { mimeType })
+        mediaRecorderRef.current = mimeType
+          ? new MediaRecorder(stream, { mimeType })
+          : new MediaRecorder(stream)
       } catch {
         mediaRecorderRef.current = new MediaRecorder(stream)
       }
@@ -134,16 +149,20 @@ useEffect(() => {
         if (e.data && e.data.size > 0) chunksRef.current.push(e.data)
       }
       mediaRecorderRef.current.onstop = () => {
-        stopCameraTracks()
-        const blob = new Blob(chunksRef.current, { type: 'video/webm' })
-        const file = new File([blob], 'recording.webm', { type: 'video/webm' })
+        const type = mediaRecorderRef.current?.mimeType || 'video/webm'
+        const ext = type.includes('mp4') ? 'mp4' : 'webm'
+        const blob = new Blob(chunksRef.current, { type })
+        const file = new File([blob], `recording.${ext}`, { type })
         setVideoFile(file)
         setVideoUrl((prev) => {
           revokeOldUrl(prev)
           return URL.createObjectURL(blob)
         })
+        setTimeout(() => {
+          stopCameraTracks()
+        }, 150)
       }
-      mediaRecorderRef.current.start()
+      mediaRecorderRef.current.start(200)
       setIsRecording(true)
     }
   }
@@ -291,17 +310,16 @@ useEffect(() => {
       ) : (
         <div className="relative w-full h-full flex flex-col bg-black z-30">
           <video
-  key={videoUrl}
-  ref={previewVideoRef}
-  src={videoUrl}
-  playsInline
-  preload="auto"
-  autoPlay
-  muted
-  loop
-  style={{ transform: 'none' }}
-  className="w-full h-full object-cover"
-/>
+            key={videoUrl}
+            ref={previewVideoRef}
+            src={videoUrl}
+            playsInline
+            preload="auto"
+            autoPlay
+            loop
+            style={{ transform: 'none' }}
+            className="w-full h-full object-cover"
+          />
           <div className="absolute top-4 left-4 z-40">
             <button onClick={handleClosePreview} className="bg-black/60 p-2.5 rounded-full text-white">
               <IoClose size={26} />
