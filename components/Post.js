@@ -1,32 +1,58 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export default function Post({ post, isCreating }) {
   const videoRef = useRef(null)
+  const containerRef = useRef(null)
+  const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
-  const v = videoRef.current
-  if (!v) return
-  v.muted = true
-  if (isCreating) {
-    v.pause()
-  } else {
-    v.play().catch(() => {})
-  }
-}, [isCreating])
+    const el = containerRef.current
+    if (!el) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting && entry.intersectionRatio >= 0.6)
+      },
+      { threshold: [0.6] }
+    )
+
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+
+    if (isCreating || !isVisible) {
+      v.pause()
+      if (!isVisible && v.currentTime > 0) {
+        v.currentTime = 0
+      }
+      return
+    }
+
+    v.play().catch(() => {
+      v.muted = true
+      v.play().catch(() => {})
+    })
+  }, [isCreating, isVisible])
 
   return (
-    <div className="relative w-full h-full bg-black snap-start flex items-center justify-center overflow-hidden">
-    <video
-  ref={videoRef}
-  src={post.video_url}
-  autoPlay
-  loop
-  muted
-  playsInline
-  preload="auto"
-  className="w-full h-full object-cover"
-  onCanPlay={(e) => e.currentTarget.play().catch(() => {})}
-/>
+    <div
+      ref={containerRef}
+      className="relative w-full h-full bg-black snap-start flex items-center justify-center overflow-hidden"
+    >
+      <video
+        ref={videoRef}
+        src={post.video_url}
+        poster={post.thumbnail_url || undefined}
+        loop
+        muted
+        playsInline
+        preload={isVisible ? 'auto' : 'metadata'}
+        className="w-full h-full object-cover"
+      />
 
       {/* Sombra de baixo para o texto ler bem */}
       <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
