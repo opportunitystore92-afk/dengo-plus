@@ -30,7 +30,7 @@ function AuthModal({ onClose }) {
         <div className="h-12 w-12 rounded-full bg-white mx-auto flex items-center justify-center mb-4 text-black font-bold text-xl">D</div>
         <h3 className="text-lg font-bold text-white mb-2">Cadastra-te no Dengo</h3>
         <p className="text-sm text-zinc-400 mb-6">Precisas de ter uma conta para curtir, comentar e interagir com os vídeos.</p>
-        <button onClick={() => window.location.href = '/auth'} className="w-full py-3 rounded-xl bg-white text-black font-semibold shadow-lg hover:opacity-90 transition">Fazer Cadastro / Login</button>
+        <button onClick={() => { localStorage.setItem('dengo_voltar_para', window.location.pathname + window.location.search); window.location.href = '/auth'; }} className="w-full py-3 rounded-xl bg-white text-black font-semibold shadow-lg hover:opacity-90 transition">Fazer Cadastro / Login</button>
       </div>
     </div>
   );

@@ -32,7 +32,14 @@ const Signin = () => {
       uid: user.uid
     }));
 
-    router.push("/");
+    const voltarPara = localStorage.getItem('dengo_voltar_para');
+localStorage.removeItem('dengo_voltar_para');
+// Volta para o vídeo onde ele estava, se não tiver, vai para o feed
+if (voltarPara && !voltarPara.includes('/auth/signin')) {
+  router.push(voltarPara);
+} else {
+  router.push("/");
+}
   }
 }, [user]);
 
