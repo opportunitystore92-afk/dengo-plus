@@ -44,7 +44,11 @@ const VideoCamera = forwardRef(function VideoCamera(
 
         const constraints = {
           video: { facingMode },
-          audio: true
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
         };
 
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -53,6 +57,11 @@ const VideoCamera = forwardRef(function VideoCamera(
           stream.getTracks().forEach((track) => track.stop());
           return;
         }
+
+        // Garante que a faixa de áudio está explicitamente ativa
+        stream.getAudioTracks().forEach((track) => {
+          track.enabled = true;
+        });
 
         localStream = stream;
         streamRef.current = stream;
@@ -108,12 +117,17 @@ const VideoCamera = forwardRef(function VideoCamera(
           return false;
         }
 
+        // Reconfirma que o áudio está ativo antes de gravar
+        stream.getAudioTracks().forEach((track) => {
+          track.enabled = true;
+        });
+
         try {
           const mimeType = [
-            'video/webm;codecs=vp9,opus',
+            'video/mp4',
             'video/webm;codecs=vp8,opus',
-            'video/webm',
-            'video/mp4'
+            'video/webm;codecs=vp9,opus',
+            'video/webm'
           ].find((type) => MediaRecorder.isTypeSupported(type));
 
           chunksRef.current = [];
@@ -158,15 +172,14 @@ const VideoCamera = forwardRef(function VideoCamera(
               { type: blob.type }
             );
 
-            // --- CORREÇÃO PRINCIPAL: desliga o microfone ANTES de mostrar o preview ---
-            // Antes ele ficava aberto e ecoava por cima do preview.
-            // Agora paramos aqui, o onRecorded mostra o preview limpo, sem eco.
-            stopCameraTracks();
-
+            // Entrega primeiro o ficheiro finalizado com áudio e só depois desliga o hardware
             onRecorded?.(file);
+            setTimeout(() => {
+              stopCameraTracks();
+            }, 150);
           };
 
-          recorder.start();
+          recorder.start(200);
           setError('');
           return true;
         } catch (err) {
@@ -184,20 +197,23 @@ const VideoCamera = forwardRef(function VideoCamera(
         return false;
       },
 
-      // --- CORREÇÃO 2: Novo método para o pai desligar / religar sem danificar ---
-      // Usa no CreateVideo quando for para o preview: cameraRef.current?.stopCamera()
       stopCamera() {
         stopCameraTracks();
       },
 
-      // Se o user voltar do preview para a câmara, chama isto para reabrir
       async startCamera() {
-        // Se já está aberta, não faz nada
         if (streamRef.current) return true;
         try {
           const stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode },
-            audio: true
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            }
+          });
+          stream.getAudioTracks().forEach((track) => {
+            track.enabled = true;
           });
           streamRef.current = stream;
           if (videoRef.current) {
@@ -224,8 +240,8 @@ const VideoCamera = forwardRef(function VideoCamera(
         playsInline
         className="h-full w-full object-cover"
         style={{
-  transform: 'none'
-}}
+          transform: 'none'
+        }}
       />
 
       {error && (
