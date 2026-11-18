@@ -253,7 +253,7 @@ export default function HomeFeed() {
         if (!Array.isArray(data)) throw new Error('Resposta inválida.');
         if (!cancelled) {
           const posts = data.map(normalizePost).filter((post) => post.videoUrl);
-          setVideosList(posts);
+          setVideosList([...posts].sort((a, b) => new Date(b.created_at || b.createdAt || 0) - new Date(a.created_at || a.createdAt || 0)));
           setFeedError('');
         }
       } catch { if (!cancelled) setFeedError('Não foi possível atualizar as publicações salvas.'); }
