@@ -13,11 +13,28 @@ const Signin = () => {
   const [signInWithGoogle, userCred, loading, error] =
     useSignInWithGoogle(auth);
 
-  useEffect(() => {
-    if (user) {
-      router.push("/");
-    } else return;
-  }, [user]);
+ useEffect(() => {
+  if (user) {
+    // Cria @ do nome - ex: Aparecida França -> aparecida_franca
+    const nome = user.displayName || user.email.split('@')[0];
+    const username = nome
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '_')
+      .replace(/_+/g, '_');
+
+    // Salva 1 vez só - fica logado
+    localStorage.setItem('dengoo_user', JSON.stringify({
+      username: username,
+      name: user.displayName,
+      email: user.email,
+      photo: user.photoURL,
+      uid: user.uid
+    }));
+
+    router.push("/");
+  }
+}, [user]);
 
   return (
     <motion.div

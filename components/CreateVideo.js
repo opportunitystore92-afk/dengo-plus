@@ -230,17 +230,29 @@ export default function CreateVideo({ onClose }) {
           }
 const getCurrentUsername = () => {
   try {
+    // 1. Tenta o novo - que o signin.js acabou de salvar
+    const saved = localStorage.getItem('dengoo_user');
+    if (saved) {
+      const u = JSON.parse(saved);
+      if (u?.username) return u.username;
+      // Se salvou como texto puro, não JSON
+      if (typeof u === 'string') return u;
+    }
+    // 2. Tenta o antigo
     const s = localStorage.getItem('dengo_user_session');
     if (s) {
       const u = JSON.parse(s);
       if (u?.username) return u.username;
     }
-    const legacy = localStorage.getItem('dengoo_user');
-    if (legacy) return legacy;
-  } catch {}
-  return 'dengo.oficial';
+  } catch (e) {}
+  return null;
 };
 const currentUsername = getCurrentUsername();
+if (!currentUsername) {
+  alert('Tem que se cadastrar pra postar!');
+  window.location.href = '/auth/signin';
+  return;
+}
 
           const postRes = await fetch(workerUrl + '/posts', {
             method: 'POST',
