@@ -50,7 +50,7 @@ function ShareSheet({ video, onClose, onRequireAuth }) {
   const loggedUser = localStorage.getItem('dengoo_user');
     if (!loggedUser) {
     onClose();
-    window.location.href = '/auth/signin';
+    if (onRequestAuth) onRequestAuth();
     return;
   }
   try {
@@ -64,13 +64,13 @@ function ShareSheet({ video, onClose, onRequireAuth }) {
 
   const shareWhatsApp = () => {
   const loggedUser = localStorage.getItem('dengoo_user');
-  if (!loggedUser) { onClose(); window.location.href = '/auth/signin'; return; }
+  if (!loggedUser) { onClose(); if (onRequestAuth) onRequestAuth(); return; }
   window.open(`https://wa.me/?text=${encodeURIComponent(`Olha esse vídeo no Dengo: ${detailUrl}`)}`, '_blank');
 };
   
   const shareFacebook = () => {
   const loggedUser = localStorage.getItem('dengoo_user');
-  if (!loggedUser) { onClose(); window.location.href = '/auth/signin'; return; }
+  if (!loggedUser) { onClose(); if (onRequestAuth) onRequestAuth(); return; }
   window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(detailUrl)}`, '_blank');
 };
 
