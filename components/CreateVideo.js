@@ -133,15 +133,11 @@ export default function CreateVideo({ onClose }) {
       stream.getAudioTracks().forEach(track => {
         track.enabled = true
       })
-      const mimeType = [
-        'video/mp4',
-        'video/webm;codecs=vp8,opus',
-        'video/webm'
-      ].find(type => MediaRecorder.isTypeSupported(type))
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus') 
+        ? 'video/webm;codecs=vp8,opus' 
+        : 'video/webm'
       try {
-        mediaRecorderRef.current = mimeType
-          ? new MediaRecorder(stream, { mimeType })
-          : new MediaRecorder(stream)
+        mediaRecorderRef.current = new MediaRecorder(stream, { mimeType })
       } catch {
         mediaRecorderRef.current = new MediaRecorder(stream)
       }
@@ -149,10 +145,8 @@ export default function CreateVideo({ onClose }) {
         if (e.data && e.data.size > 0) chunksRef.current.push(e.data)
       }
       mediaRecorderRef.current.onstop = () => {
-        const type = mediaRecorderRef.current?.mimeType || 'video/webm'
-        const ext = type.includes('mp4') ? 'mp4' : 'webm'
-        const blob = new Blob(chunksRef.current, { type })
-        const file = new File([blob], `recording.${ext}`, { type })
+        const blob = new Blob(chunksRef.current, { type: 'video/webm' })
+        const file = new File([blob], 'recording.webm', { type: 'video/webm' })
         setVideoFile(file)
         setVideoUrl((prev) => {
           revokeOldUrl(prev)
