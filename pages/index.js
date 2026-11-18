@@ -107,12 +107,13 @@ function CommentSheet({ video, onClose, onRequireAuth }) {
   ]);
 
   const handleSend = () => {
-    const user = localStorage.getItem('dengoo_user');
-    if (!user) { onRequireAuth(); return; }
-    if (!comment.trim()) return;
-    setComments([{ id: Date.now(), user: 'meu_perfil', text: comment, likes: 0, time: 'agora', avatar: '/default-avatar.png' }, ...comments]);
-    setComment(''); setShowEmojis(false);
-  };
+  const userRaw = localStorage.getItem('dengoo_user');
+  const user = userRaw ? JSON.parse(userRaw) : null;
+  if (!user) { onRequireAuth(); return; }
+  if (!comment.trim()) return;
+  setComments([{ id: Date.now(), user: user.username || 'meu_perfil', text: comment, likes: 0, time: 'agora', avatar: user.avatar || '/default-avatar.png' }, ...comments]);
+  setComment(''); setShowEmojis(false);
+};
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col justify-end">
