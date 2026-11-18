@@ -228,13 +228,26 @@ export default function CreateVideo({ onClose }) {
           } catch (thumbErr) {
             console.warn('A publicar sem capa:', thumbErr)
           }
+const getCurrentUsername = () => {
+  try {
+    const s = localStorage.getItem('dengo_user_session');
+    if (s) {
+      const u = JSON.parse(s);
+      if (u?.username) return u.username;
+    }
+    const legacy = localStorage.getItem('dengoo_user');
+    if (legacy) return legacy;
+  } catch {}
+  return 'dengo.oficial';
+};
+const currentUsername = getCurrentUsername();
 
           const postRes = await fetch(workerUrl + '/posts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               id: fileName,
-              username: 'dengo.oficial',
+              username: currentUsername,
               caption: caption,
               video_url: workerUrl + '/' + fileName,
               thumbnail_url: thumbnailUrl
