@@ -46,23 +46,32 @@ function ShareSheet({ video, onClose, onRequireAuth }) {
   }
   const detailUrl = `https://dengo-plus.pages.dev/detail/${videoId}`;
 
-  const handleCopyLink = async () => {
-    try { 
-      await navigator.clipboard.writeText(detailUrl); 
-      setCopied(true); 
-      setTimeout(() => setCopied(false), 2000); 
-    } catch { 
-      alert('Link: ' + detailUrl); 
-    }
-  };
+ const handleCopyLink = async () => {
+  const loggedUser = localStorage.getItem('dengoo_user');
+  if (!loggedUser) {
+    if (onRequestAuth) onRequestAuth();
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(detailUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  } catch {
+    alert('Link: ' + detailUrl);
+  }
+};
 
-  const shareWhatsApp = () => { 
-    window.open(`https://wa.me/?text=${encodeURIComponent(`Olha esse vídeo no Dengo: ${detailUrl}`)}`, '_blank'); 
-  };
+  const shareWhatsApp = () => {
+  const loggedUser = localStorage.getItem('dengoo_user');
+  if (!loggedUser) { if (onRequestAuth) onRequestAuth(); return; }
+  window.open(`https://wa.me/?text=${encodeURIComponent(`Olha esse vídeo no Dengo: ${detailUrl}`)}`, '_blank');
+};
   
-  const shareFacebook = () => { 
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(detailUrl)}`, '_blank'); 
-  };
+  const shareFacebook = () => {
+  const loggedUser = localStorage.getItem('dengoo_user');
+  if (!loggedUser) { if (onRequestAuth) onRequestAuth(); return; }
+  window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(detailUrl)}`, '_blank');
+};
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col justify-end">
