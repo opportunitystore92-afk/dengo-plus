@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Plus, Home, Users, MessageSquare, User, X, Search, Repeat, Link2, Flag, HeartCrack, PlusCircle, Heart, Send, Bookmark } from 'lucide-react';
+import { Plus, Home, Users, MessageSquare, User, X, Search, Repeat, Link2, Heart, Send, Bookmark } from 'lucide-react';
 import CreateVideo from '../components/CreateVideo';
 
 const WORKER_URL = 'https://dengo-upload-worker.dnctraderoperation.workers.dev';
@@ -14,11 +14,6 @@ function normalizePost(post) {
     avatar: post.avatar || post.profileImage || post.profile_image || '/default-avatar.png',
     profileImage: post.profileImage || post.profile_image || post.avatar || '/default-avatar.png'
   };
-}
-
-function getVideoExtension(file) {
-  const extensions = { 'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov', 'video/ogg': 'ogv', 'video/x-m4v': 'm4v' };
-  return extensions[file.type] || 'mp4';
 }
 
 function getLoggedUser() {
@@ -52,7 +47,7 @@ function AuthModal({ onClose }) {
   );
 }
 
-function ShareSheet({ video, onClose, onRequireAuth }) {
+function ShareSheet({ video, onClose }) {
   const [copied, setCopied] = useState(false);
 
   const rawVideo = video || {};
@@ -62,9 +57,7 @@ function ShareSheet({ video, onClose, onRequireAuth }) {
   }
   const detailUrl = `https://dengo-plus.pages.dev/detail/${videoId}`;
 
- const ensureAuthenticated = () => {
-    return true;
-  };
+  const ensureAuthenticated = () => true;
 
   const handleCopyLink = async () => {
     try {
@@ -76,7 +69,7 @@ function ShareSheet({ video, onClose, onRequireAuth }) {
     }
   };
 
-  const shareWhatsapp = () => {
+  const shareWhatsApp = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(`Olha esse video no Dengo: ${detailUrl}`)}`, '_blank');
   };
 
@@ -175,41 +168,82 @@ function CommentSheet({ video, onClose, onRequireAuth }) {
   );
 }
 
-function FeedVideoItem({ video, onShare, onComment, onRequireAuth, isActive}) {
+function FeedVideoItem({ video, onShare, onComment, isActive, shouldPreload }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const formatTime = (t) => { if (!t || isNaN(t)) return "0:00"; const m = Math.floor(t / 60); const s = Math.floor(t % 60); return `${m}:${s.toString().padStart(2, "0")}`; };
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(false);
   const videoRef = useRef(null);
 
+  const formatTime = (t) => {
+    if (!t || isNaN(t)) return "0:00";
+    const m = Math.floor(t / 60);
+    const s = Math.floor(t % 60);
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
   useEffect(() => {
-    if (!videoRef.current) return;
+    const el = videoRef.current;
+    if (!el) return;
+
     if (isActive) {
-      setMuted(true);
-      videoRef.current.play().catch(() => {});
+      el.muted = muted;
+      const playPromise = el.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {
+          if (!el.muted) {
+            el.muted = true;
+            setMuted(true);
+            el.play().catch(() => {});
+          }
+        });
+      }
     } else {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
+      el.pause();
+      el.currentTime = 0;
     }
-  }, [isActive]);
+  }, [isActive, muted]);
+
+  useEffect(() => {
+    if (!isActive || !muted) return;
+    const unlockAudio = () => {
+      const el = videoRef.current;
+      if (!el) return;
+      el.muted = false;
+      setMuted(false);
+      el.play().catch(() => {});
+    };
+    window.addEventListener('pointerdown', unlockAudio, { once: true, passive: true });
+    return () => window.removeEventListener('pointerdown', unlockAudio);
+  }, [isActive, muted]);
+
+  const handleVideoClick = () => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (el.paused) {
+      el.muted = false;
+      setMuted(false);
+      el.play().catch(() => {});
+    } else {
+      el.pause();
+    }
+  };
 
   return (
     <div className="relative flex h-[100dvh] w-full shrink-0 flex-col justify-between overflow-hidden bg-black snap-start md:max-w-[420px] md:mx-auto md:my-4 md:h-[calc(100dvh-32px)] md:rounded-2xl md:border md:border-zinc-800">
       <video
-  ref={videoRef}
-  src={video.videoUrl}
-  muted={muted}
-  autoPlay
-  onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
-  onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
-  preload="auto"
-  playsInline
-  loop
-  onClick={() => { if (!videoRef.current) return; if (muted) setMuted(false); if (videoRef.current.paused) videoRef.current.play().catch(() => {}); else videoRef.current.pause(); }}
-  className="absolute inset-0 h-full w-full object-cover bg-black"
-/>
+        ref={videoRef}
+        src={video.videoUrl}
+        muted={muted}
+        onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
+        onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
+        preload={isActive || shouldPreload ? "auto" : "metadata"}
+        playsInline
+        loop
+        onClick={handleVideoClick}
+        className="absolute inset-0 h-full w-full object-cover bg-black"
+      />
       <div className="absolute inset-x-0 bottom-0 z-30 px-3 pb-[85px] pointer-events-none">
         <div className="flex items-center gap-2">
           <div className="flex-1 h-[4px] bg-white/30 rounded-full overflow-hidden">
@@ -264,12 +298,12 @@ export default function HomeFeed() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const feedContainerRef = useRef(null);
 
-useEffect(() => {
-  const user = getLoggedUser();
-  if (user) {
-    localStorage.removeItem('dengo_auth_prompted_once');
-  }
-}, []);
+  useEffect(() => {
+    const user = getLoggedUser();
+    if (user) {
+      localStorage.removeItem('dengo_auth_prompted_once');
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -284,7 +318,9 @@ useEffect(() => {
           setVideosList([...posts].sort((a, b) => new Date(b.created_at || b.createdAt || 0) - new Date(a.created_at || a.createdAt || 0)));
           setFeedError('');
         }
-      } catch { if (!cancelled) setFeedError('Não foi possível atualizar as publicações salvas.'); }
+      } catch {
+        if (!cancelled) setFeedError('Não foi possível atualizar as publicações salvas.');
+      }
     };
     loadPosts();
     return () => { cancelled = true; };
@@ -297,20 +333,30 @@ useEffect(() => {
     setTimeout(() => { if (feedContainerRef.current) feedContainerRef.current.scrollTop = 0; }, 100);
   };
 
+  const handleScroll = (e) => {
+    const container = e.currentTarget;
+    const height = container.clientHeight || window.innerHeight || 1;
+    const nextIndex = Math.max(0, Math.min(videosList.length - 1, Math.round(container.scrollTop / height)));
+    if (nextIndex !== activeIndex) {
+      setActiveIndex(nextIndex);
+    }
+  };
+
   return (
     <div className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-black">
-      <main ref={feedContainerRef} onScroll={(e) => { const s = e.currentTarget.scrollTop; setActiveIndex(Math.round(s / window.innerHeight)); }} className="no-scrollbar relative flex h-[100dvh] w-full flex-1 flex-col snap-y snap-mandatory overflow-y-auto overflow-x-hidden overscroll-contain">
+      <main ref={feedContainerRef} onScroll={handleScroll} className="no-scrollbar relative flex h-[100dvh] w-full flex-1 flex-col snap-y snap-mandatory overflow-y-auto overflow-x-hidden overscroll-contain">
         {feedError && <div role="status" className="absolute left-3 right-3 top-3 z-20 rounded-lg bg-black/80 p-2 text-center text-xs text-white">{feedError}</div>}
         {videosList.length === 0 ? (
           <div className="flex h-full w-full items-center justify-center text-zinc-500 text-sm">Nenhum vídeo no feed. Clica no + para publicar!</div>
         ) : (
           videosList.map((video, index) => (
-            <FeedVideoItem 
-              key={video.id} 
+            <FeedVideoItem
+              key={video.id}
               video={video}
-              isActive={index === activeIndex} 
-              onShare={setShareVideo} 
-              onComment={setCommentVideo} 
+              isActive={index === activeIndex}
+              shouldPreload={index === activeIndex + 1 || index === activeIndex - 1}
+              onShare={setShareVideo}
+              onComment={setCommentVideo}
               onRequireAuth={() => setIsAuthModalOpen(true)}
             />
           ))
