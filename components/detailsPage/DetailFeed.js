@@ -8,20 +8,29 @@ export default function DetailFeed({ id }) {
 
   useEffect(() => {
     if (!id) {
+      setVideo(null);
       setLoading(false);
       return;
     }
-    
-    // Simula ou busca o vídeo específico pelo ID
+
+    let cancelado = false;
+    setLoading(true);
+
     fetch(`/api/videos/${id}`)
       .then((res) => res.json())
       .then((data) => {
+        if (cancelado) return;
         setVideo(data);
         setLoading(false);
       })
       .catch(() => {
+        if (cancelado) return;
         setLoading(false);
       });
+
+    return () => {
+      cancelado = true;
+    };
   }, [id]);
 
   const handleProtectedAction = (actionCallback) => {
@@ -37,11 +46,15 @@ export default function DetailFeed({ id }) {
     return <div style={{ color: '#fff', textAlign: 'center', padding: '40px' }}>A carregar vídeo...</div>;
   }
 
+  if (!video) {
+    return <div style={{ color: '#fff', textAlign: 'center', padding: '40px' }}>Vídeo não encontrado.</div>;
+  }
+
   return (
     <div>
-      <VideoDetail 
-        video={video} 
-        onInteract={handleProtectedAction} 
+      <VideoDetail
+        video={video}
+        onInteract={handleProtectedAction}
       />
 
       {isAuthModalOpen && (
@@ -50,8 +63,8 @@ export default function DetailFeed({ id }) {
             <button onClick={() => setIsAuthModalOpen(false)} style={closeButtonStyle}>×</button>
             <h2 style={{ marginBottom: '20px', color: '#333' }}>Cadastra-te no Dengo</h2>
             <p style={{ marginBottom: '20px', color: '#666' }}>Precisas de uma conta para curtir, comentar ou interagir com os vídeos.</p>
-            <button 
-              onClick={() => window.location.href = '/auth'} 
+            <button
+              onClick={() => { window.location.href = '/auth'; }}
               style={submitButtonStyle}
             >
               Fazer Cadastro / Login

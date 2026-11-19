@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
-export default function VideoDetail({ video }) {
+export default function VideoDetail({ video, onInteract }) {
+  const videoRef = useRef(null);
+
   const [curtiu, setCurtiu] = useState(false);
   const [curtidas, setCurtidas] = useState(0);
   const [mostrarComentarios, setMostrarComentarios] = useState(false);
@@ -8,6 +10,7 @@ export default function VideoDetail({ video }) {
   const [listaComentarios, setListaComentarios] = useState([]);
   const [salvo, setSalvo] = useState(false);
   const [aviso, setAviso] = useState('');
+  const [carregandoVideo, setCarregandoVideo] = useState(true);
 
   const videoId = video?.id || 'video';
   const videoUrl = video?.url || video?.src || '';
@@ -15,13 +18,41 @@ export default function VideoDetail({ video }) {
 
   useEffect(() => {
     const salvos = JSON.parse(localStorage.getItem('dengo_salvos') || '[]');
-    if (salvos.includes(videoId)) setSalvo(true);
+    setSalvo(salvos.includes(videoId));
+
     const comentariosSalvos = JSON.parse(localStorage.getItem('dengo_comentarios_' + videoId) || '[]');
     setListaComentarios(comentariosSalvos);
+
     const curtidasSalvas = JSON.parse(localStorage.getItem('dengo_curtidas_' + videoId) || '[]');
     setCurtidas(curtidasSalvas.length);
-    if (curtidasSalvas.includes('eu')) setCurtiu(true);
+    setCurtiu(curtidasSalvas.includes('eu'));
   }, [videoId]);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    setCarregandoVideo(true);
+
+    if (el && videoUrl) {
+      el.pause();
+      el.currentTime = 0;
+      el.load();
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && videoRef.current) {
+        videoRef.current.pause();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (videoRef.current) {
+        videoRef.current.pause();
+      }
+    };
+  }, [videoUrl]);
 
   function mostrarAviso(texto) {
     setAviso(texto);
@@ -104,16 +135,39 @@ export default function VideoDetail({ video }) {
 
   return (
     <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', justifyContent: 'center', padding: '16px' }}>
-      <div style={{ flex: 1, maxWidth: '520px' }}>
+      <div style={{ flex: 1, maxWidth: '520px', position: 'relative' }}>
         {videoUrl ? (
-        <video
-  src={videoUrl}
-  poster={video.thumbnail_url || video.thumbnail || video.cover || ""}
-  preload="metadata"
-  playsInline
-  controls
-  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-/>
+          <>
+            {carregandoVideo && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  left: '12px',
+                  zIndex: 5,
+                  background: 'rgba(0,0,0,0.75)',
+                  color: '#fff',
+                  padding: '6px 12px',
+                  borderRadius: '16px',
+                  fontSize: '13px',
+                }}
+              >
+                A carregar vídeo...
+              </div>
+            )}
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              poster={video?.thumbnail_url || video?.thumbnail || video?.cover || ''}
+              preload="auto"
+              playsInline
+              controls
+              onCanPlay={() => setCarregandoVideo(false)}
+              onPlaying={() => setCarregandoVideo(false)}
+              onWaiting={() => setCarregandoVideo(true)}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          </>
         ) : (
           <p>Vídeo não encontrado</p>
         )}
