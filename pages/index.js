@@ -207,7 +207,7 @@ function FeedVideoItem({ video, onShare, onComment, onRequireAuth, isActive}) {
   preload="auto"
   playsInline
   loop
-  onClick={() => { if (videoRef.current.paused) videoRef.current.play(); else videoRef.current.pause(); }}
+  onClick={() => { if (!videoRef.current) return; if (muted) setMuted(false); if (videoRef.current.paused) videoRef.current.play().catch(() => {}); else videoRef.current.pause(); }}
   className="absolute inset-0 h-full w-full object-cover bg-black"
 />
       <div className="absolute inset-x-0 bottom-0 z-30 px-3 pb-[85px] pointer-events-none">
