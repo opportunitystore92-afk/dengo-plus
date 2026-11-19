@@ -239,7 +239,7 @@ function FeedVideoItem({ video, onShare, onComment, isActive, shouldPreload }) {
         onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
         onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
         onCanPlay={() => { if (isActive && videoRef.current?.paused) videoRef.current.play().catch(() => {}); }}
-        preload={isActive || shouldPreload ? "auto" : "metadata"}
+        preload={isActive ? "auto" : "metadata"}
         playsInline
         loop
         onClick={handleVideoClick}
