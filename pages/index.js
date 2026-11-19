@@ -271,6 +271,22 @@ export default function HomeFeed() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const feedContainerRef = useRef(null);
 
+useEffect(() => {
+    const user = getLoggedUser();
+    if (user) {
+      localStorage.removeItem('dengo_auth_prompted_once');
+      return;
+    }
+    const alreadyPrompted = localStorage.getItem('dengo_auth_prompted_once');
+    if (!alreadyPrompted && window.location.pathname !== '/auth/signin') {
+      localStorage.setItem('dengo_auth_prompted_once', '1');
+      localStorage.setItem(
+        'dengo_voltar_para',
+        window.location.pathname + window.location.search
+      );
+      window.location.href = '/auth/signin';
+    }
+  }, []);
   useEffect(() => {
     let cancelled = false;
     const loadPosts = async () => {
