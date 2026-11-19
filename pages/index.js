@@ -238,6 +238,7 @@ function FeedVideoItem({ video, onShare, onComment, isActive, shouldPreload }) {
         muted={muted}
         onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
         onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
+        onCanPlay={() => { if (isActive && videoRef.current?.paused) videoRef.current.play().catch(() => {}); }}
         preload={isActive || shouldPreload ? "auto" : "metadata"}
         playsInline
         loop
@@ -354,7 +355,7 @@ export default function HomeFeed() {
               key={video.id}
               video={video}
               isActive={index === activeIndex}
-              shouldPreload={index === activeIndex + 1 || index === activeIndex - 1}
+              shouldPreload={index === activeIndex + 1}
               onShare={setShareVideo}
               onComment={setCommentVideo}
               onRequireAuth={() => setIsAuthModalOpen(true)}
