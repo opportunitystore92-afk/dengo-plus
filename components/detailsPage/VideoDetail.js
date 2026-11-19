@@ -108,6 +108,7 @@ export default function VideoDetail({ video }) {
         {videoUrl ? (
         <video
   src={videoUrl}
+  poster={video.thumbnail_url || video.thumbnail || video.cover || ""}
   preload="metadata"
   playsInline
   controls
