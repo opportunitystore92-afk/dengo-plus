@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 
+function getVideoMimeType(url = '') {
+  const clean = String(url).split('?')[0].toLowerCase()
+  if (clean.endsWith('.webm')) return 'video/webm'
+  if (clean.endsWith('.mov')) return 'video/quicktime'
+  if (clean.endsWith('.m4v')) return 'video/x-m4v'
+  return 'video/mp4'
+}
+
 export default function Post({ post, isCreating }) {
   const videoRef = useRef(null)
   const containerRef = useRef(null)
@@ -26,16 +34,25 @@ export default function Post({ post, isCreating }) {
 
     if (isCreating || !isVisible) {
       v.pause()
-      if (!isVisible && v.currentTime > 0) {
-        v.currentTime = 0
-      }
       return
     }
 
-    v.play().catch(() => {
-      v.muted = true
-      v.play().catch(() => {})
-    })
+    const startPlayback = () => {
+      v.play().catch(() => {
+        v.muted = true
+        v.play().catch(() => {})
+      })
+    }
+
+    if (v.readyState >= 2) {
+      startPlayback()
+    } else {
+      v.addEventListener('canplay', startPlayback, { once: true })
+      v.load()
+      return () => {
+        v.removeEventListener('canplay', startPlayback)
+      }
+    }
   }, [isCreating, isVisible])
 
   return (
@@ -45,14 +62,15 @@ export default function Post({ post, isCreating }) {
     >
       <video
         ref={videoRef}
-        src={post.video_url}
         poster={post.thumbnail_url || undefined}
         loop
         muted
         playsInline
-        preload={isVisible ? 'auto' : 'metadata'}
+        preload="metadata"
         className="w-full h-full object-cover"
-      />
+      >
+        <source src={post.video_url} type={getVideoMimeType(post.video_url)} />
+      </video>
 
       {/* Sombra de baixo para o texto ler bem */}
       <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
