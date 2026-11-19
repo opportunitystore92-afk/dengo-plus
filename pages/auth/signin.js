@@ -15,6 +15,7 @@ export default function SignIn() {
 
     const userLimpo = nome.trim().replace("@", "");
     const contatoLimpo = contato.trim();
+    const senhaLimpa = senha.trim();
 
     if (!userLimpo) {
       setErro("Escreve o teu nome");
@@ -26,14 +27,13 @@ export default function SignIn() {
       return;
     }
 
-    if (!senha) {
+    if (!senhaLimpa) {
       setErro("Escreve a tua senha");
       return;
     }
 
-    // Conta antiga que já funcionava
-    if (userLimpo.toLowerCase() === "alves" && senha !== "1234") {
-      setErro("Senha errada para o Alves");
+    if (userLimpo.toLowerCase() === "alves" && senhaLimpa !== "1234") {
+      setErro("Senha errada para o Alves (usa 1234)");
       return;
     }
 
@@ -52,6 +52,7 @@ export default function SignIn() {
 
     localStorage.setItem("dengo_user", JSON.stringify(user));
     localStorage.setItem("dengoo_user", JSON.stringify(user));
+    localStorage.setItem("dengo_user_session", JSON.stringify(user));
 
     const voltarPara = localStorage.getItem("dengo_voltar_para");
     localStorage.removeItem("dengo_voltar_para");
@@ -59,7 +60,6 @@ export default function SignIn() {
     if (voltarPara && !voltarPara.includes("/auth/signin")) {
       router.push(voltarPara);
     } else if (window.location.pathname.startsWith("/detail")) {
-      // já tá no vídeo, volta sem recarregar a página toda = sem delay
       router.push(window.location.pathname + "?logado=1");
     } else {
       router.push("/");
@@ -128,7 +128,6 @@ export default function SignIn() {
           Entrar e continuar
         </button>
       </form>
-
     </div>
   );
 }
