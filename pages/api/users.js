@@ -1,17 +1,45 @@
+
+
 export const runtime = 'edge';
 
 function getDB(req) {
+  try {
+    const ctx = getRequestContext();
+    if (ctx?.env?.DB) return ctx.env.DB;
+  } catch (_) {}
   if (req?.env?.DB) return req.env.DB;
   if (typeof globalThis !== 'undefined' && globalThis.DB) return globalThis.DB;
   if (typeof process !== 'undefined' && process.env?.DB) return process.env.DB;
   return null;
 }
 
+async function readBody(req) {
+  if (req?.body && typeof req.body === 'object') return req.body;
+  if (typeof req?.json === 'function') {
+    try {
+      return await req.json();
+    } catch (_) {
+      return {};
+    }
+  }
+  return {};
+}
+
+function sendJson(res, status, data) {
+  if (res && typeof res.status === 'function' && typeof res.json === 'function') {
+    return res.status(status).json(data);
+  }
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+
 export default async function handler(req, res) {
   const db = getDB(req);
 
   if (!db) {
-    return res.status(500).json({
+    return sendJson(res, 500, {
       ok: false,
       error: 'Binding DB nao encontrado neste ambiente.'
     });
@@ -24,7 +52,7 @@ export default async function handler(req, res) {
         .all();
 
       const list = results || [];
-      return res.status(200).json({
+      return sendJson(res, 200, {
         ok: true,
         total: list.length,
         users: list
@@ -32,12 +60,12 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { username, contact } = req.body || {};
+      const { username, contact } = await readBody(req);
       const cleanUsername = String(username || '').trim();
       const cleanContact = String(contact || '').trim();
 
       if (!cleanUsername) {
-        return res.status(400).json({ ok: false, error: 'Username obrigatorio.' });
+        return sendJson(res, 400, { ok: false, error: 'Username obrigatorio.' });
       }
 
       const existing = await db
@@ -47,7 +75,7 @@ export default async function handler(req, res) {
 
       if (existing) {
         if (existing.status === 'blocked') {
-          return res.status(403).json({
+          return sendJson(res, 403, {
             ok: false,
             blocked: true,
             error: 'Esta conta esta bloqueada pelo administrador.'
@@ -59,7 +87,7 @@ export default async function handler(req, res) {
           .bind(cleanContact, existing.id)
           .run();
 
-        return res.status(200).json({
+        return sendJson(res, 200, {
           ok: true,
           user: { ...existing, contact: cleanContact || existing.contact }
         });
@@ -75,15 +103,15 @@ export default async function handler(req, res) {
         .bind(cleanUsername)
         .first();
 
-      return res.status(201).json({ ok: true, user: created });
+      return sendJson(res, 201, { ok: true, user: created });
     }
 
     if (req.method === 'PATCH') {
-      const { id, status } = req.body || {};
+      const { id, status } = await readBody(req);
       const nextStatus = status === 'blocked' ? 'blocked' : 'active';
 
       if (!id) {
-        return res.status(400).json({ ok: false, error: 'ID do utilizador obrigatorio.' });
+        return sendJson(res, 400, { ok: false, error: 'ID do utilizador obrigatorio.' });
       }
 
       await db
@@ -91,13 +119,15 @@ export default async function handler(req, res) {
         .bind(nextStatus, id)
         .run();
 
-      return res.status(200).json({ ok: true, id, status: nextStatus });
+      return sendJson(res, 200, { ok: true, id, status: nextStatus });
     }
 
-    res.setHeader('Allow', ['GET', 'POST', 'PATCH']);
-    return res.status(405).json({ ok: false, error: 'Metodo nao permitido.' });
+    if (res && typeof res.setHeader === 'function') {
+      res.setHeader('Allow', ['GET', 'POST', 'PATCH']);
+    }
+    return sendJson(res, 405, { ok: false, error: 'Metodo nao permitido.' });
   } catch (err) {
-    return res.status(500).json({
+    return sendJson(res, 500, {
       ok: false,
       error: err?.message || 'Erro interno ao consultar o banco D1.'
     });
