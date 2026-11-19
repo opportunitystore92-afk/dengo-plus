@@ -5,11 +5,46 @@ import { useEffect, useState } from "react";
 
 const WORKER_URL = 'https://dengo-upload-worker.dnctraderoperation.workers.dev';
 
+function getLoggedUser() {
+  if (typeof window === "undefined") return null;
+  const keys = ["dengoo_user", "dengo_user", "dengo_user_session"];
+  for (const key of keys) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw || raw === "null" || raw === "undefined") continue;
+      const parsed = JSON.parse(raw);
+      if (parsed && (parsed.username || parsed.name || parsed.email)) {
+        return parsed;
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
 export default function Detail() {
   const router = useRouter();
   const [video, setVideo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [finalId, setFinalId] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const user = getLoggedUser();
+    if (user) {
+      localStorage.removeItem("dengo_auth_prompted_once");
+      return;
+    }
+    const alreadyPrompted = localStorage.getItem("dengo_auth_prompted_once");
+    if (!alreadyPrompted && window.location.pathname !== "/auth/signin") {
+      localStorage.setItem("dengo_auth_prompted_once", "1");
+      localStorage.setItem(
+        "dengo_voltar_para",
+        window.location.pathname + window.location.search
+      );
+      window.location.href = "/auth/signin";
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -28,7 +63,14 @@ export default function Detail() {
         const one = await r.json();
         const v = one?.post || one?.data || one;
         if (v && (v.videoUrl || v.video_url || v.mediaUrl)) {
-          setVideo({ id: String(v.id || finalId), username: v.username || "usuario", caption: v.caption || "", videoUrl: v.videoUrl || v.video_url || v.mediaUrl || "", thumbnailUrl: v.thumbnailUrl || v.thumbnail_url || v.thumb || "", avatar: v.avatar || v.profileImage || "/default-avatar.png" });
+          setVideo({
+            id: String(v.id || finalId),
+            username: v.username || "usuario",
+            caption: v.caption || "",
+            videoUrl: v.videoUrl || v.video_url || v.mediaUrl || "",
+            thumbnailUrl: v.thumbnailUrl || v.thumbnail_url || v.thumb || "",
+            avatar: v.avatar || v.profileImage || "/default-avatar.png"
+          });
           setLoading(false);
           return true;
         }
@@ -41,12 +83,53 @@ export default function Detail() {
             const list = Array.isArray(data) ? data : (data.posts || data.data || []);
             const found = list.find((p) => String(p.id) === String(finalId));
             if (!found) { setLoading(false); return; }
-            setVideo({ id: String(found.id), username: found.username || "usuario", caption: found.caption || "", videoUrl: found.videoUrl || found.video_url || found.mediaUrl || "", thumbnailUrl: found.thumbnailUrl || found.thumbnail_url || found.thumb || "", avatar: found.avatar || found.profileImage || "/default-avatar.png" });
+            setVideo({
+              id: String(found.id),
+              username: found.username || "usuario",
+              caption: found.caption || "",
+              videoUrl: found.videoUrl || found.video_url || found.mediaUrl || "",
+              thumbnailUrl: found.thumbnailUrl || found.thumbnail_url || found.thumb || "",
+              avatar: found.avatar || found.profileImage || "/default-avatar.png"
+            });
             setLoading(false);
           })
           .catch(() => setLoading(false));
       });
   }, [finalId]);
+
+  const requireAuth = (actionCallback) => {
+    const user = getLoggedUser();
+    if (!user) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("dengo_voltar_para", window.location.pathname + window.location.search);
+        window.location.href = "/auth/signin";
+      }
+      return;
+    }
+    if (typeof actionCallback === "function") {
+      actionCallback(user);
+    }
+  };
+
+  const handleShare = async () => {
+    const shareUrl = typeof window !== "undefined"
+      ? window.location.href
+      : `https://dengo-plus.pages.dev/detail/${finalId}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: video?.caption || "Dengo Plus",
+          url: shareUrl,
+        });
+        return;
+      }
+    } catch (_) {}
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (_) {}
+  };
 
   const videoUrl = video?.videoUrl || "";
   const thumb = video?.thumbnailUrl || "https://dengo-plus.pages.dev/logo.png";
@@ -71,7 +154,12 @@ export default function Detail() {
             <h2 style={{ fontSize: 20 }}>@{video.username}</h2>
             <p>{video.caption}</p>
             {videoUrl ? <video src={videoUrl} controls autoPlay playsInline style={{ width: "100%", background: "#000", borderRadius: 8 }} /> : <p>Sem URL de vídeo</p>}
-            <p style={{marginTop: 12}}><Link href="/">← Voltar</Link></p>
+            <div style={{ marginTop: 12, display: "flex", gap: 12, alignItems: "center" }}>
+              <button type="button" onClick={handleShare} style={{ padding: "8px 14px", cursor: "pointer" }}>
+                {copied ? "Link copiado!" : "Compartilhar"}
+              </button>
+              <Link href="/">← Voltar</Link>
+            </div>
           </>
         )}
       </div>
