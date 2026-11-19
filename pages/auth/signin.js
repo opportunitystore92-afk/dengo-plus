@@ -57,13 +57,13 @@ export default function SignIn() {
     localStorage.removeItem("dengo_voltar_para");
 
     if (voltarPara && !voltarPara.includes("/auth/signin")) {
-  router.push(voltarPara);
-} else if (window.location.pathname.startsWith("/detail")) {
-  // já tá no vídeo, fica aqui mesmo, só recarrega pra destravar o curtir/comentar
-  window.location.reload();
-} else {
-  router.push("/");
-}
+      router.push(voltarPara);
+    } else if (window.location.pathname.startsWith("/detail")) {
+      // já tá no vídeo, volta sem recarregar a página toda = sem delay
+      router.push(window.location.pathname + "?logado=1");
+    } else {
+      router.push("/");
+    }
   }
 
   const inputStyle = {
