@@ -1,4 +1,4 @@
-
+export const runtime = 'edge';
 
 function getDB(req) {
   if (req?.env?.DB) return req.env.DB;
