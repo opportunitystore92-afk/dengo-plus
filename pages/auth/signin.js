@@ -51,15 +51,19 @@ export default function SignIn() {
     };
 
     localStorage.setItem("dengo_user", JSON.stringify(user));
+    localStorage.setItem("dengoo_user", JSON.stringify(user));
 
     const voltarPara = localStorage.getItem("dengo_voltar_para");
     localStorage.removeItem("dengo_voltar_para");
 
     if (voltarPara && !voltarPara.includes("/auth/signin")) {
-      router.push(voltarPara);
-    } else {
-      router.push("/");
-    }
+  router.push(voltarPara);
+} else if (window.location.pathname.startsWith("/detail")) {
+  // já tá no vídeo, fica aqui mesmo, só recarrega pra destravar o curtir/comentar
+  window.location.reload();
+} else {
+  router.push("/");
+}
   }
 
   const inputStyle = {
