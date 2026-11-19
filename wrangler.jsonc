@@ -34,5 +34,13 @@
 		// Enable image optimization
 		// see https://opennext.js.org/cloudflare/howtos/image
 		"binding": "IMAGES"
-	}
+	},
+	"d1_databases": [
+		{
+			"binding": "dengo_db",
+			"database_name": "dengo-db",
+			"database_id": "06989e43-eb83-4ddc-89de-2199ed925725",
+			"remote": true
+		}
+	]
 }

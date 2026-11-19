@@ -9,7 +9,7 @@ export default function SignIn() {
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
 
-  function entrar(e) {
+  async function entrar(e) {
     e.preventDefault();
     setErro("");
 
@@ -35,6 +35,26 @@ export default function SignIn() {
     if (userLimpo.toLowerCase() === "alves" && senhaLimpa !== "1234") {
       setErro("Senha errada para o Alves (usa 1234)");
       return;
+    }
+
+    try {
+      const resp = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: userLimpo,
+          contact: contatoLimpo
+        })
+      });
+
+      const data = await resp.json().catch(() => ({}));
+
+      if (resp.status === 403 || data?.blocked) {
+        setErro(data?.error || "Esta conta esta bloqueada pelo administrador.");
+        return;
+      }
+    } catch (err) {
+      // Se o endpoint ainda nao responder localmente, nao bloqueia o fluxo existente
     }
 
     const isEmail = contatoLimpo.includes("@");
