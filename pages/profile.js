@@ -74,6 +74,19 @@ export default function ProfilePage() {
     setTimeout(() => setToastMessage(''), 3000);
   };
 
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem('dengoo_user');
+      localStorage.removeItem('dengo_user');
+      localStorage.removeItem('dengo_user_session');
+      localStorage.removeItem('dengo_user_profile');
+      sessionStorage.clear();
+    } catch (error) {
+      console.error('Erro ao limpar sessão:', error);
+    }
+    window.location.href = '/auth/signin';
+  };
+
   const handleSaveProfile = (e) => {
     e.preventDefault();
     const updated = {
@@ -209,7 +222,18 @@ export default function ProfilePage() {
                 <div className="min-w-0 flex-1">
                   <h1 className="text-lg font-black text-gray-900 truncate">{profileData.name}</h1>
                   <p className="text-xs text-gray-400 font-medium truncate">@{profileData.username}</p>
-                  <button onClick={() => setIsEditing(true)} className="mt-3 px-5 py-2 bg-gray-100 text-gray-800 rounded-xl text-xs font-bold">Editar Perfil</button>
+                  <div className="flex flex-wrap items-center gap-2 mt-3">
+                    <button onClick={() => setIsEditing(true)} className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-bold transition">
+                      Editar Perfil
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl text-xs font-bold transition"
+                    >
+                      Sair
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="mt-6 grid grid-cols-3 border-y border-gray-100 py-4 text-center">
