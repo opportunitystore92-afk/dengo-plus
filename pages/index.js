@@ -62,30 +62,22 @@ function ShareSheet({ video, onClose, onRequireAuth }) {
   }
   const detailUrl = `https://dengo-plus.pages.dev/detail/${videoId}`;
 
-  const ensureAuthenticated = () => {
-    const user = getLoggedUser();
-    if (!user) {
-      onClose();
-      if (onRequireAuth) onRequireAuth();
-      return false;
-    }
+ const ensureAuthenticated = () => {
     return true;
   };
 
   const handleCopyLink = async () => {
-    if (!ensureAuthenticated()) return;
     try {
       await navigator.clipboard.writeText(detailUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
+    } catch (_) {
       alert('Link: ' + detailUrl);
     }
   };
 
-  const shareWhatsApp = () => {
-    if (!ensureAuthenticated()) return;
-    window.open(`https://wa.me/?text=${encodeURIComponent(`Olha esse vídeo no Dengo: ${detailUrl}`)}`, '_blank');
+  const shareWhatsapp = () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(`Olha esse video no Dengo: ${detailUrl}`)}`, '_blank');
   };
 
   const shareFacebook = () => {
@@ -189,13 +181,13 @@ function FeedVideoItem({ video, onShare, onComment, onRequireAuth, isActive}) {
   const formatTime = (t) => { if (!t || isNaN(t)) return "0:00"; const m = Math.floor(t / 60); const s = Math.floor(t % 60); return `${m}:${s.toString().padStart(2, "0")}`; };
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [muted, setMuted] = useState(false);
+  const [muted, setMuted] = useState(true);
   const videoRef = useRef(null);
 
   useEffect(() => {
     if (!videoRef.current) return;
     if (isActive) {
-      setMuted(false);
+      setMuted(true);
       videoRef.current.play().catch(() => {});
     } else {
       videoRef.current.pause();
@@ -205,18 +197,19 @@ function FeedVideoItem({ video, onShare, onComment, onRequireAuth, isActive}) {
 
   return (
     <div className="relative flex h-[100dvh] w-full shrink-0 flex-col justify-between overflow-hidden bg-black snap-start md:max-w-[420px] md:mx-auto md:my-4 md:h-[calc(100dvh-32px)] md:rounded-2xl md:border md:border-zinc-800">
-      <video 
-        ref={videoRef} 
-        src={video.videoUrl} 
-        muted={muted}
-        onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
-        onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)} 
-        preload="metadata" 
-        playsInline 
-        loop 
-        onClick={() => { if (videoRef.current.paused) videoRef.current.play(); else videoRef.current.pause(); }} 
-        className="absolute inset-0 h-full w-full object-cover bg-black" 
-      />
+      <video
+  ref={videoRef}
+  src={video.videoUrl}
+  muted={muted}
+  autoPlay
+  onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
+  onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
+  preload="auto"
+  playsInline
+  loop
+  onClick={() => { if (videoRef.current.paused) videoRef.current.play(); else videoRef.current.pause(); }}
+  className="absolute inset-0 h-full w-full object-cover bg-black"
+/>
       <div className="absolute inset-x-0 bottom-0 z-30 px-3 pb-[85px] pointer-events-none">
         <div className="flex items-center gap-2">
           <div className="flex-1 h-[4px] bg-white/30 rounded-full overflow-hidden">
@@ -272,21 +265,12 @@ export default function HomeFeed() {
   const feedContainerRef = useRef(null);
 
 useEffect(() => {
-    const user = getLoggedUser();
-    if (user) {
-      localStorage.removeItem('dengo_auth_prompted_once');
-      return;
-    }
-    const alreadyPrompted = localStorage.getItem('dengo_auth_prompted_once');
-    if (!alreadyPrompted && window.location.pathname !== '/auth/signin') {
-      localStorage.setItem('dengo_auth_prompted_once', '1');
-      localStorage.setItem(
-        'dengo_voltar_para',
-        window.location.pathname + window.location.search
-      );
-      window.location.href = '/auth/signin';
-    }
-  }, []);
+  const user = getLoggedUser();
+  if (user) {
+    localStorage.removeItem('dengo_auth_prompted_once');
+  }
+}, []);
+
   useEffect(() => {
     let cancelled = false;
     const loadPosts = async () => {
