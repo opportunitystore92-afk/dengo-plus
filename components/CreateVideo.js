@@ -3,6 +3,24 @@ import { useRouter } from 'next/router'
 import { IoClose, IoCameraReverseOutline, IoImageOutline } from 'react-icons/io5'
 import { captureThumbnail } from './captureThumbnail'
 
+function getSupportedRecordingMimeType() {
+  if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) {
+    return { mimeType: '', ext: 'webm', baseType: 'video/webm' }
+  }
+  const candidates = [
+    { mimeType: 'video/mp4;codecs=avc1,mp4a.40.2', ext: 'mp4', baseType: 'video/mp4' },
+    { mimeType: 'video/mp4', ext: 'mp4', baseType: 'video/mp4' },
+    { mimeType: 'video/webm;codecs=vp8,opus', ext: 'webm', baseType: 'video/webm' },
+    { mimeType: 'video/webm', ext: 'webm', baseType: 'video/webm' }
+  ]
+  for (const item of candidates) {
+    if (MediaRecorder.isTypeSupported(item.mimeType)) {
+      return item
+    }
+  }
+  return { mimeType: '', ext: 'webm', baseType: 'video/webm' }
+}
+
 export default function CreateVideo({ onClose }) {
   const [videoFile, setVideoFile] = useState(null)
   const [videoUrl, setVideoUrl] = useState('')
@@ -11,7 +29,7 @@ export default function CreateVideo({ onClose }) {
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [facingMode, setFacingMode] = useState('user')
-  
+
   const videoRef = useRef(null)
   const previewVideoRef = useRef(null)
   const mediaRecorderRef = useRef(null)
@@ -48,7 +66,6 @@ export default function CreateVideo({ onClose }) {
     }
   }
 
-  // --- CORREÇÃO SOM DO FEED: fica a calar o feed enquanto a câmara está aberta ---
   useEffect(() => {
     const silenceFeed = () => {
       document.querySelectorAll('video').forEach((v) => {
@@ -133,20 +150,27 @@ export default function CreateVideo({ onClose }) {
       stream.getAudioTracks().forEach(track => {
         track.enabled = true
       })
-      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus') 
-        ? 'video/webm;codecs=vp8,opus' 
-        : 'video/webm'
+
+      const selected = getSupportedRecordingMimeType()
       try {
-        mediaRecorderRef.current = new MediaRecorder(stream, { mimeType })
+        mediaRecorderRef.current = selected.mimeType
+          ? new MediaRecorder(stream, { mimeType: selected.mimeType })
+          : new MediaRecorder(stream)
       } catch {
         mediaRecorderRef.current = new MediaRecorder(stream)
       }
+
+      const finalType = mediaRecorderRef.current.mimeType
+        ? mediaRecorderRef.current.mimeType.split(';')[0]
+        : selected.baseType
+      const finalExt = finalType.includes('mp4') ? 'mp4' : selected.ext
+
       mediaRecorderRef.current.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) chunksRef.current.push(e.data)
       }
       mediaRecorderRef.current.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'video/webm' })
-        const file = new File([blob], 'recording.webm', { type: 'video/webm' })
+        const blob = new Blob(chunksRef.current, { type: finalType })
+        const file = new File([blob], `recording.${finalExt}`, { type: finalType })
         setVideoFile(file)
         setVideoUrl((prev) => {
           revokeOldUrl(prev)
@@ -156,7 +180,7 @@ export default function CreateVideo({ onClose }) {
           stopCameraTracks()
         }, 150)
       }
-      mediaRecorderRef.current.start(200)
+      mediaRecorderRef.current.start(1000)
       setIsRecording(true)
     }
   }
@@ -196,11 +220,14 @@ export default function CreateVideo({ onClose }) {
     }
     setUploading(true)
     setUploadProgress(0)
-    const fileName = Date.now() + '-' + (videoFile.name || 'video.mp4')
+    const cleanName = (videoFile.name || 'video.mp4').replace(/[^a-zA-Z0-9._-]/g, '_')
+    const fileName = Date.now() + '-' + cleanName
     const workerUrl = 'https://dengo-upload-worker.dnctraderoperation.workers.dev'
+    const contentType = videoFile.type || (cleanName.endsWith('.webm') ? 'video/webm' : 'video/mp4')
+
     const xhr = new XMLHttpRequest()
     xhr.open('PUT', workerUrl + '/' + fileName, true)
-    xhr.setRequestHeader('Content-Type', videoFile.type || 'video/mp4')
+    xhr.setRequestHeader('Content-Type', contentType)
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {
         const percent = Math.round((e.loaded / e.total) * 100)
@@ -210,8 +237,6 @@ export default function CreateVideo({ onClose }) {
     xhr.onload = async () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
-          // --- CAPA: gera um JPG de um frame do vídeo (galeria ou câmara).
-          // Se falhar, publica na mesma, só sem capa (thumbnail_url = null).
           let thumbnailUrl = null
           try {
             const thumbBlob = await captureThumbnail(videoFile)
@@ -228,31 +253,30 @@ export default function CreateVideo({ onClose }) {
           } catch (thumbErr) {
             console.warn('A publicar sem capa:', thumbErr)
           }
-const getCurrentUsername = () => {
-  try {
-    // 1. Tenta o novo - que o signin.js acabou de salvar
-    const saved = localStorage.getItem('dengoo_user');
-    if (saved) {
-      const u = JSON.parse(saved);
-      if (u?.username) return u.username;
-      // Se salvou como texto puro, não JSON
-      if (typeof u === 'string') return u;
-    }
-    // 2. Tenta o antigo
-    const s = localStorage.getItem('dengo_user_session');
-    if (s) {
-      const u = JSON.parse(s);
-      if (u?.username) return u.username;
-    }
-  } catch (e) {}
-  return null;
-};
-const currentUsername = getCurrentUsername();
-if (!currentUsername) {
-  alert('Tem que se cadastrar pra postar!');
-  window.location.href = '/auth/signin';
-  return;
-}
+
+          const getCurrentUsername = () => {
+            try {
+              const saved = localStorage.getItem('dengoo_user')
+              if (saved) {
+                const u = JSON.parse(saved)
+                if (u?.username) return u.username
+                if (typeof u === 'string') return u
+              }
+              const s = localStorage.getItem('dengo_user_session')
+              if (s) {
+                const u = JSON.parse(s)
+                if (u?.username) return u.username
+              }
+            } catch (e) {}
+            return null
+          }
+
+          const currentUsername = getCurrentUsername()
+          if (!currentUsername) {
+            alert('Tem que se cadastrar pra postar!')
+            window.location.href = '/auth/signin'
+            return
+          }
 
           const postRes = await fetch(workerUrl + '/posts', {
             method: 'POST',
@@ -293,14 +317,14 @@ if (!currentUsername) {
     <div className="fixed inset-0 z-[99999] bg-black text-white flex flex-col justify-between overflow-hidden">
       {!videoUrl ? (
         <div className="relative w-full h-full flex flex-col justify-between bg-black">
-          <video 
-            ref={videoRef} 
-            autoPlay 
-            playsInline 
-            muted 
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
             disablePictureInPicture
             style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
-            className="absolute inset-0 w-full h-full object-cover z-0" 
+            className="absolute inset-0 w-full h-full object-cover z-0"
           />
           <div className="relative z-30 flex justify-between items-center p-4 bg-gradient-to-b from-black/80 to-transparent">
             <button onClick={onClose} className="p-2 text-white"><IoClose size={32} /></button>
@@ -317,8 +341,8 @@ if (!currentUsername) {
               <span className="text-xs mt-1 font-medium">Galeria</span>
               <input type="file" accept="video/*" className="hidden" onChange={handleFileSelect} />
             </label>
-            <button 
-              onClick={toggleRecording} 
+            <button
+              onClick={toggleRecording}
               className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center p-1 bg-transparent active:scale-95 transition-transform"
             >
               <div className={'w-full h-full rounded-full transition-all ' + (isRecording ? 'bg-red-600 scale-50 rounded-lg' : 'bg-red-600')} />
@@ -344,25 +368,25 @@ if (!currentUsername) {
               <IoClose size={26} />
             </button>
           </div>
-         
+
           <div className="absolute bottom-0 left-0 right-0 p-4 pb-8 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col gap-3 z-40">
-            <input 
-              type="text" 
-              placeholder="Adicionar legenda..." 
-              value={caption} 
-              onChange={(e) => setCaption(e.target.value)} 
+            <input
+              type="text"
+              placeholder="Adicionar legenda..."
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
               className="w-full p-3.5 bg-zinc-900/90 border border-zinc-700 rounded-xl text-white outline-none text-base"
             />
-            <button 
-              onClick={handleUpload} 
-              disabled={uploading} 
+            <button
+              onClick={handleUpload}
+              disabled={uploading}
               className="w-full bg-red-600 text-white py-3.5 rounded-xl font-bold text-lg shadow-lg active:opacity-90 relative overflow-hidden"
             >
               {uploading ? (
                 <>
-                  <div 
-                    className="absolute left-0 top-0 bottom-0 bg-red-800 transition-all duration-200" 
-                    style={{ width: uploadProgress + '%' }} 
+                  <div
+                    className="absolute left-0 top-0 bottom-0 bg-red-800 transition-all duration-200"
+                    style={{ width: uploadProgress + '%' }}
                   />
                   <span className="relative z-10">A publicar ({uploadProgress}%)</span>
                 </>
