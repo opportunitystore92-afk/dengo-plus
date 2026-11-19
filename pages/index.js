@@ -21,6 +21,22 @@ function getVideoExtension(file) {
   return extensions[file.type] || 'mp4';
 }
 
+function getLoggedUser() {
+  if (typeof window === 'undefined') return null;
+  const keys = ['dengoo_user', 'dengo_user', 'dengo_user_session'];
+  for (const key of keys) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw || raw === 'null' || raw === 'undefined') continue;
+      const parsed = JSON.parse(raw);
+      if (parsed && (parsed.username || parsed.name || parsed.email)) {
+        return parsed;
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
 function AuthModal({ onClose }) {
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
@@ -30,7 +46,7 @@ function AuthModal({ onClose }) {
         <div className="h-12 w-12 rounded-full bg-white mx-auto flex items-center justify-center mb-4 text-black font-bold text-xl">D</div>
         <h3 className="text-lg font-bold text-white mb-2">Cadastra-te no Dengo</h3>
         <p className="text-sm text-zinc-400 mb-6">Precisas de ter uma conta para curtir, comentar e interagir com os vídeos.</p>
-        <button onClick={() => { localStorage.setItem('dengo_voltar_para', window.location.pathname + window.location.search); window.location.href = '/auth'; }} className="w-full py-3 rounded-xl bg-white text-black font-semibold shadow-lg hover:opacity-90 transition">Fazer Cadastro / Login</button>
+        <button onClick={() => { localStorage.setItem('dengo_voltar_para', window.location.pathname + window.location.search); window.location.href = '/signin'; }} className="w-full py-3 rounded-xl bg-white text-black font-semibold shadow-lg hover:opacity-90 transition">Fazer Cadastro / Login</button>
       </div>
     </div>
   );
@@ -38,7 +54,7 @@ function AuthModal({ onClose }) {
 
 function ShareSheet({ video, onClose, onRequireAuth }) {
   const [copied, setCopied] = useState(false);
-  
+
   const rawVideo = video || {};
   let videoId = rawVideo.id || rawVideo._id || '';
   if (!videoId && rawVideo.videoUrl) {
@@ -46,33 +62,36 @@ function ShareSheet({ video, onClose, onRequireAuth }) {
   }
   const detailUrl = `https://dengo-plus.pages.dev/detail/${videoId}`;
 
- const handleCopyLink = async () => {
-  const loggedUser = localStorage.getItem('dengoo_user');
-    if (!loggedUser) {
-    onClose();
-    if (onRequireAuth) onRequireAuth();
-    return;
-  }
-  try {
-    await navigator.clipboard.writeText(detailUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  } catch {
-    alert('Link: ' + detailUrl);
-  }
-};
+  const ensureAuthenticated = () => {
+    const user = getLoggedUser();
+    if (!user) {
+      onClose();
+      if (onRequireAuth) onRequireAuth();
+      return false;
+    }
+    return true;
+  };
+
+  const handleCopyLink = async () => {
+    if (!ensureAuthenticated()) return;
+    try {
+      await navigator.clipboard.writeText(detailUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      alert('Link: ' + detailUrl);
+    }
+  };
 
   const shareWhatsApp = () => {
-  const loggedUser = localStorage.getItem('dengoo_user');
-  if (!loggedUser) { onClose(); if (onRequireAuth) onRequireAuth(); return; }
-  window.open(`https://wa.me/?text=${encodeURIComponent(`Olha esse vídeo no Dengo: ${detailUrl}`)}`, '_blank');
-};
-  
+    if (!ensureAuthenticated()) return;
+    window.open(`https://wa.me/?text=${encodeURIComponent(`Olha esse vídeo no Dengo: ${detailUrl}`)}`, '_blank');
+  };
+
   const shareFacebook = () => {
-  const loggedUser = localStorage.getItem('dengoo_user');
-  if (!loggedUser) { onClose(); if (onRequireAuth) onRequireAuth(); return; }
-  window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(detailUrl)}`, '_blank');
-};
+    if (!ensureAuthenticated()) return;
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(detailUrl)}`, '_blank');
+  };
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col justify-end">
@@ -117,13 +136,12 @@ function CommentSheet({ video, onClose, onRequireAuth }) {
   ]);
 
   const handleSend = () => {
-  const userRaw = localStorage.getItem('dengoo_user');
-  const user = userRaw ? JSON.parse(userRaw) : null;
-  if (!user) { onRequireAuth(); return; }
-  if (!comment.trim()) return;
-  setComments([{ id: Date.now(), user: user.username || 'meu_perfil', text: comment, likes: 0, time: 'agora', avatar: user.avatar || '/default-avatar.png' }, ...comments]);
-  setComment(''); setShowEmojis(false);
-};
+    const user = getLoggedUser();
+    if (!user) { onRequireAuth(); return; }
+    if (!comment.trim()) return;
+    setComments([{ id: Date.now(), user: user.username || user.name || 'meu_perfil', text: comment, likes: 0, time: 'agora', avatar: user.avatar || '/default-avatar.png' }, ...comments]);
+    setComment(''); setShowEmojis(false);
+  };
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col justify-end">
@@ -142,7 +160,7 @@ function CommentSheet({ video, onClose, onRequireAuth }) {
                 <div className="flex gap-4 mt-2"><span className="text-[12px] text-zinc-500">Responder</span><span className="text-[12px] text-zinc-500">Ver tradução</span></div>
               </div>
               <div className="flex flex-col items-center gap-1">
-                <button onClick={() => { const user = localStorage.getItem('dengoo_user'); if (!user) { onRequireAuth(); } }}><Heart className="h-5 w-5 text-zinc-500 hover:text-red-500" /></button>
+                <button onClick={() => { const user = getLoggedUser(); if (!user) { onRequireAuth(); } }}><Heart className="h-5 w-5 text-zinc-500 hover:text-red-500" /></button>
                 <span className="text-[11px] text-zinc-500">{c.likes}</span>
               </div>
             </div>
@@ -166,7 +184,7 @@ function CommentSheet({ video, onClose, onRequireAuth }) {
 }
 
 function FeedVideoItem({ video, onShare, onComment, onRequireAuth, isActive}) {
-    const [currentTime, setCurrentTime] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const formatTime = (t) => { if (!t || isNaN(t)) return "0:00"; const m = Math.floor(t / 60); const s = Math.floor(t % 60); return `${m}:${s.toString().padStart(2, "0")}`; };
   const [liked, setLiked] = useState(false);
@@ -191,7 +209,7 @@ function FeedVideoItem({ video, onShare, onComment, onRequireAuth, isActive}) {
         ref={videoRef} 
         src={video.videoUrl} 
         muted={muted}
-                onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
+        onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
         onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)} 
         preload="metadata" 
         playsInline 
@@ -199,7 +217,6 @@ function FeedVideoItem({ video, onShare, onComment, onRequireAuth, isActive}) {
         onClick={() => { if (videoRef.current.paused) videoRef.current.play(); else videoRef.current.pause(); }} 
         className="absolute inset-0 h-full w-full object-cover bg-black" 
       />
-            {/* Barra de progresso */}
       <div className="absolute inset-x-0 bottom-0 z-30 px-3 pb-[85px] pointer-events-none">
         <div className="flex items-center gap-2">
           <div className="flex-1 h-[4px] bg-white/30 rounded-full overflow-hidden">
@@ -208,12 +225,12 @@ function FeedVideoItem({ video, onShare, onComment, onRequireAuth, isActive}) {
           <span className="text-[11px] font-medium text-white drop-shadow">{formatTime(currentTime)} / {formatTime(duration)}</span>
         </div>
       </div>
-   
-           <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-4 pb-24 text-white">
+
+      <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-4 pb-24 text-white">
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center font-bold text-white overflow-hidden">
-{video.avatar ? <img src={video.avatar} alt="" className="w-full h-full object-cover" /> : "D"}
-</div>
+            {video.avatar ? <img src={video.avatar} alt="" className="w-full h-full object-cover" /> : "D"}
+          </div>
           <p className="font-semibold">@{video.username}</p>
         </div>
         <p className="text-sm text-zinc-300 mt-1">{video.caption}</p>
@@ -274,11 +291,11 @@ export default function HomeFeed() {
   }, []);
 
   const handleNewVideo = (newVideoData) => {
-  if (!newVideoData) return;
-  setVideosList((current) => [normalizePost(newVideoData), ...current.filter((item) => item.id !== newVideoData.id)]);
-  setFeedError('');
-  setTimeout(() => { if (feedContainerRef.current) feedContainerRef.current.scrollTop = 0; }, 100);
-};
+    if (!newVideoData) return;
+    setVideosList((current) => [normalizePost(newVideoData), ...current.filter((item) => item.id !== newVideoData.id)]);
+    setFeedError('');
+    setTimeout(() => { if (feedContainerRef.current) feedContainerRef.current.scrollTop = 0; }, 100);
+  };
 
   return (
     <div className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-black">

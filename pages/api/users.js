@@ -1,5 +1,3 @@
-
-
 export const runtime = 'edge';
 
 function getDB(req) {
@@ -14,10 +12,28 @@ function getDB(req) {
 }
 
 async function readBody(req) {
-  if (req?.body && typeof req.body === 'object') return req.body;
+  if (req?.body && typeof req.body === 'object' && !(typeof req.body.getReader === 'function')) {
+    return req.body;
+  }
   if (typeof req?.json === 'function') {
     try {
       return await req.json();
+    } catch (_) {
+      return {};
+    }
+  }
+  if (typeof req?.text === 'function') {
+    try {
+      const txt = await req.text();
+      return txt ? JSON.parse(txt) : {};
+    } catch (_) {
+      return {};
+    }
+  }
+  if (req?.body && typeof req.body.getReader === 'function') {
+    try {
+      const txt = await new Response(req.body).text();
+      return txt ? JSON.parse(txt) : {};
     } catch (_) {
       return {};
     }
