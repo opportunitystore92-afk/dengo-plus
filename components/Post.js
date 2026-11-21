@@ -8,10 +8,49 @@ function getVideoMimeType(url = '') {
   return 'video/mp4'
 }
 
+// Som destravado uma vez, vale pra todos os vídeos
+let somDestravadoGlobal = false
+
 export default function Post({ post, isCreating }) {
   const videoRef = useRef(null)
   const containerRef = useRef(null)
   const [isVisible, setIsVisible] = useState(false)
+  const [isMuted, setIsMuted] = useState(!somDestravadoGlobal)
+
+  // Destrava o som no primeiro toque / rolar - vale pra todos
+  useEffect(() => {
+    const destravarSom = () => {
+      somDestravadoGlobal = true
+      setIsMuted(false)
+      if (videoRef.current) videoRef.current.muted = false
+      window.dispatchEvent(new Event('dengo-som-ligado'))
+    }
+
+    const ouvirDestrave = () => {
+      setIsMuted(false)
+      if (videoRef.current) videoRef.current.muted = false
+    }
+
+    window.addEventListener('touchstart', destravarSom, { once: true })
+    window.addEventListener('click', destravarSom, { once: true })
+    window.addEventListener('scroll', destravarSom, { once: true })
+    window.addEventListener('dengo-som-ligado', ouvirDestrave)
+
+    return () => {
+      window.removeEventListener('touchstart', destravarSom)
+      window.removeEventListener('click', destravarSom)
+      window.removeEventListener('scroll', destravarSom)
+      window.removeEventListener('dengo-som-ligado', ouvirDestrave)
+    }
+  }, [])
+
+  // Se já destravou, garante que esse vídeo novo já entra com som
+  useEffect(() => {
+    if (somDestravadoGlobal && videoRef.current) {
+      videoRef.current.muted = false
+      setIsMuted(false)
+    }
+  }, [isVisible])
 
   useEffect(() => {
     const el = containerRef.current
@@ -38,6 +77,7 @@ export default function Post({ post, isCreating }) {
     }
 
     const startPlayback = () => {
+      v.muted = isMuted
       v.play().catch(() => {
         v.muted = true
         v.play().catch(() => {})
@@ -53,7 +93,7 @@ export default function Post({ post, isCreating }) {
         v.removeEventListener('canplay', startPlayback)
       }
     }
-  }, [isCreating, isVisible])
+  }, [isCreating, isVisible, isMuted])
 
   return (
     <div
@@ -64,7 +104,7 @@ export default function Post({ post, isCreating }) {
         ref={videoRef}
         poster={post.thumbnail_url || undefined}
         loop
-        muted
+        muted={isMuted}
         playsInline
         preload="metadata"
         className="w-full h-full object-cover"
