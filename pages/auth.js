@@ -11,24 +11,41 @@ export default function AuthPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const router = useRouter();
 
-  const handleAuthSubmit = (e) => {
+ const handleAuthSubmit = async (e) => {
     e.preventDefault();
-    setErrorMessage('');
-
     if (!email || !password || (!isLogin && !username)) {
       setErrorMessage('Por favor, preenche todos os campos obrigatórios.');
       return;
     }
 
-    // Simulação de autenticação bem-sucedida guardando no localStorage
     const userData = {
       username: isLogin ? email.split('@')[0] : username,
       email: email,
       isLoggedIn: true
     };
 
+    try {
+      const resp = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: userData.username,
+          contact: userData.email
+        })
+      });
+
+      const data = await resp.json().catch(() => ({}));
+
+      if (resp.status === 403 || data?.blocked) {
+        setErrorMessage(data?.error || 'Esta conta está bloqueada pelo administrador.');
+        return;
+      }
+    } catch (err) {
+      // Não bloqueia o fluxo local se houver falha de rede
+    }
+
     localStorage.setItem('dengo_user_session', JSON.stringify(userData));
-    
+
     // Redirecionar para a página principal ou perfil
     router.push('/');
   };
