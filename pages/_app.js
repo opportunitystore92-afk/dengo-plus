@@ -28,8 +28,8 @@ export default function MyApp({ Component, pageProps }) {
         <title>Dengo Plus - A tua rede social de vídeos</title>
         <meta name="description" content="Vê os vídeos mais quentes e divertidos no Dengo Plus." />
         <meta name="theme-color" content="#000000" />
-        <link rel="manifest" href="/manifest.json?v=8" />
-        <link rel="apple-touch-icon" href="/icon-512.png?v=8" />
+        <link rel="manifest" href="/manifest.json?v=9" />
+        <link rel="apple-touch-icon" href="/icon-512.png?v=9" />
       </Head>
 
       {showSplash && (
@@ -48,7 +48,7 @@ export default function MyApp({ Component, pageProps }) {
           }}
         >
           <img
-            src="/splash-icon.png?v=8"
+            src="/splash-icon.png?v=9"
             alt="Dengo Plus"
             style={{
               display: 'block',
