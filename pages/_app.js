@@ -28,8 +28,8 @@ export default function MyApp({ Component, pageProps }) {
         <title>Dengo Plus - A tua rede social de vídeos</title>
         <meta name="description" content="Vê os vídeos mais quentes e divertidos no Dengo Plus." />
         <meta name="theme-color" content="#000000" />
-        <link rel="manifest" href="/manifest.json?v=2" />
-        <link rel="apple-touch-icon" href="/icon-512.png?v=2" />
+        <link rel="manifest" href="/manifest.json?v=3" />
+        <link rel="apple-touch-icon" href="/icon-512.png?v=3" />
 
         {/* NÃO colocar og:image / twitter:image aqui!
             Se colocar aqui, ele manda pra TODAS as páginas e mata a prévia do vídeo.
@@ -52,10 +52,10 @@ export default function MyApp({ Component, pageProps }) {
           }}
         >
           <img
-            src="/splash-icon.png?v=2"
+            src="/splash-icon.png?v=3"
             alt="Dengo Plus"
             style={{
-              width: '160px',
+              width: '230px',
               height: 'auto',
               objectFit: 'contain',
               transform: fadeOut ? 'scale(0.96)' : 'scale(1)',
