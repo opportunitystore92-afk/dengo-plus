@@ -27,20 +27,26 @@ export default function ProfilePage() {
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
 
-  const fetchUserPosts = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('https://dengo-upload-worker.dnctraderoperation.workers.dev/posts');
-      if (res.ok) {
-        const posts = await res.json();
-        setUserPosts(posts || []);
-      }
-    } catch (error) {
-      console.error('Erro ao procurar vídeos na API:', error);
-    } finally {
-      setLoading(false);
+  const fetchUserPosts = async (currentUser) => {
+  setLoading(true);
+  try {
+    const res = await fetch('https://dengo-upload-worker.dnctraderoperation.workers.dev/posts');
+    if (res.ok) {
+      const posts = await res.json();
+      const myId = currentUser?.id || currentUser?._id || currentUser?.email;
+      const myUsername = currentUser?.username;
+      const myPosts = (posts || []).filter((post) => {
+        const author = post.userId || post.authorId || post.user_id || post.author || post.username;
+        return author === myId || author === myUsername || post.email === currentUser?.email;
+      });
+      setUserPosts(myPosts);
     }
-  };
+  } catch (error) {
+    console.error('Erro ao procurar vídeos na API:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     try {
@@ -51,8 +57,8 @@ export default function ProfilePage() {
       const oldProfile = savedProfile ? JSON.parse(savedProfile) : {};
 
       const profile = {
-        name: currentUser?.name || currentUser?.fullName || oldProfile.name || 'Alves',
-        username: currentUser?.username || oldProfile.username || 'dnctraderoperation',
+       name: currentUser?.name || currentUser?.fullName || oldProfile.name || '',
+username: currentUser?.username || oldProfile.username || '',
         bio: currentUser?.bio || oldProfile.bio || '',
         followersCount: oldProfile.followersCount || 0,
         followingCount: oldProfile.followingCount || 0
@@ -62,7 +68,7 @@ export default function ProfilePage() {
       setEditName(profile.name);
       setEditBio(profile.bio);
 
-      fetchUserPosts();
+      fetchUserPosts(currentUser);
     } catch (error) {
       console.error('Erro ao carregar perfil:', error);
       setLoading(false);
