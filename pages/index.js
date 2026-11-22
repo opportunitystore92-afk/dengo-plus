@@ -113,19 +113,87 @@ function ShareSheet({ video, onClose }) {
 function CommentSheet({ video, onClose, onRequireAuth }) {
   const [comment, setComment] = useState('');
   const [showEmojis, setShowEmojis] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [erroComentario, setErroComentario] = useState('');
   const emojis = ["😂","❤️","😍","😭","🥺","😊","🙏","👏","🔥","🤣","😅","😮","🥰","😎","💀","🤔","👍","🎉","✨","💯","🙌","😁","😆","🥲","🫶","❤️‍🔥","😳","🤩","😋","🤤"];
-  const [comments, setComments] = useState([
+
+  // CORREÇÃO: mesmo id que o VideoDetail usa, senão o comentário vai para outro vídeo
+  const videoId = String(video?.id || video?.post_id || video?.key || video?.filename || video?.url || 'video');
+
+  // Exemplos iniciais - só aparecem até o Worker devolver comentários reais
+  const comentariosExemplo = [
     { id: 1, user: 'aparecida_franca', text: 'Muito bom! 👏👏', likes: 12, time: '2h', avatar: 'https://i.pravatar.cc/100?u=aparecida' },
     { id: 2, user: 'gaucho_esquerda', text: 'Fato em 1 min sempre traz a verdade', likes: 45, time: '1h', avatar: 'https://i.pravatar.cc/100?u=gaucho' },
     { id: 3, user: 'laides_alves', text: 'Compartilhei no grupo da família', likes: 8, time: '30m', avatar: 'https://i.pravatar.cc/100?u=laides' },
-  ]);
+  ];
+  const [comments, setComments] = useState(comentariosExemplo);
 
-  const handleSend = () => {
+  // CORREÇÃO: busca os comentários salvos no Worker ao abrir - antes não buscava nada
+  useEffect(() => {
+    let cancelado = false;
+    setComments(comentariosExemplo);
+    fetch(`${WORKER_URL}/comments?post_id=${encodeURIComponent(videoId)}`)
+      .then(r => r.json())
+      .then(data => {
+        const lista = Array.isArray(data) ? data : data?.comments;
+        if (!cancelado && Array.isArray(lista) && lista.length > 0) {
+          setComments(lista.map((c, i) => ({
+            id: c.id || `${videoId}-${i}`,
+            user: c.username || c.user || 'eu',
+            text: c.text || '',
+            likes: c.likes || 0,
+            time: c.time || 'agora',
+            avatar: c.avatar || `https://i.pravatar.cc/100?u=${encodeURIComponent(c.username || c.user || 'eu')}`,
+          })));
+        }
+      })
+      .catch(() => {});
+    return () => { cancelado = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoId]);
+
+  // CORREÇÃO: salva no Worker e recarrega do Worker - antes só fazia setComments na tela
+  const handleSend = async () => {
     const user = getLoggedUser();
     if (!user) { onRequireAuth(); return; }
-    if (!comment.trim()) return;
-    setComments([{ id: Date.now(), user: user.username || user.name || 'meu_perfil', text: comment, likes: 0, time: 'agora', avatar: user.avatar || '/default-avatar.png' }, ...comments]);
+    if (!comment.trim() || enviando) return;
+    const texto = comment.trim();
     setComment(''); setShowEmojis(false);
+    setErroComentario('');
+    setEnviando(true);
+    try {
+      const res = await fetch(`${WORKER_URL}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: videoId, username: user.username || user.name || 'meu_perfil', text: texto })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || (data.success === false)) {
+        throw new Error(data.error || 'não enviou');
+      }
+      // Recarrega do Worker para provar que ficou salvo
+      const r2 = await fetch(`${WORKER_URL}/comments?post_id=${encodeURIComponent(videoId)}`);
+      const lista2 = await r2.json().catch(() => null);
+      const lista = Array.isArray(lista2) ? lista2 : lista2?.comments;
+      if (Array.isArray(lista) && lista.length > 0) {
+        setComments(lista.map((c, i) => ({
+          id: c.id || `${videoId}-${i}`,
+          user: c.username || c.user || 'eu',
+          text: c.text || '',
+          likes: c.likes || 0,
+          time: c.time || 'agora',
+          avatar: c.avatar || `https://i.pravatar.cc/100?u=${encodeURIComponent(c.username || c.user || 'eu')}`,
+        })));
+      } else {
+        // Fallback: se o Worker não devolveu a lista, mostra na tela mesmo assim
+        setComments((prev) => [{ id: Date.now(), user: user.username || user.name || 'meu_perfil', text: texto, likes: 0, time: 'agora', avatar: user.avatar || '/default-avatar.png' }, ...prev]);
+      }
+    } catch (e) {
+      setErroComentario('Não conseguiu salvar. Tenta de novo.');
+      setComment(texto);
+    } finally {
+      setEnviando(false);
+    }
   };
 
   return (
@@ -133,8 +201,9 @@ function CommentSheet({ video, onClose, onRequireAuth }) {
       <div className="absolute inset-0 bg-black/60" onClick={onClose}></div>
       <div className="relative z-10 w-full bg-[#121212] rounded-t-[18px] h-[75vh] flex flex-col">
         <div className="flex items-center justify-between px-4 py-4 border-b border-zinc-800">
-          <div className="w-6"></div><h2 className="font-bold text-white text-[16px]">601 comentários</h2><button onClick={onClose}><X className="h-5 w-5 text-white" /></button>
+          <div className="w-6"></div><h2 className="font-bold text-white text-[16px]">{comments.length} comentários</h2><button onClick={onClose}><X className="h-5 w-5 text-white" /></button>
         </div>
+        {erroComentario && <div className="mx-4 mt-3 rounded-lg bg-red-500/20 px-3 py-2 text-center text-xs text-red-300">{erroComentario}</div>}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 no-scrollbar">
           {comments.map((c) => (
             <div key={c.id} className="flex gap-3">
@@ -159,8 +228,8 @@ function CommentSheet({ video, onClose, onRequireAuth }) {
           )}
           <div className="p-3 flex items-center gap-2">
             <button onClick={()=>setShowEmojis(!showEmojis)} className="h-9 w-9 flex items-center justify-center rounded-full bg-[#2A2A2A] text-[20px]">{showEmojis ? '⌨️' : '😊'}</button>
-            <input value={comment} onChange={(e)=>setComment(e.target.value)} placeholder="Adicionar comentário..." className="flex-1 bg-[#2A2A2A] rounded-full px-4 py-2.5 text-[14px] text-white placeholder-zinc-500 outline-none" onFocus={()=>setShowEmojis(false)} />
-            <button onClick={handleSend} className="bg-white rounded-full p-2.5 active:scale-90 transition"><Send className="h-4 w-4 text-black" /></button>
+            <input value={comment} onChange={(e)=>setComment(e.target.value)} onKeyDown={(e)=>{ if(e.key==='Enter') handleSend(); }} placeholder="Adicionar comentário..." className="flex-1 bg-[#2A2A2A] rounded-full px-4 py-2.5 text-[14px] text-white placeholder-zinc-500 outline-none" onFocus={()=>setShowEmojis(false)} />
+            <button onClick={handleSend} disabled={enviando} className="bg-white rounded-full p-2.5 active:scale-90 transition disabled:opacity-50"><Send className="h-4 w-4 text-black" /></button>
           </div>
         </div>
       </div>
