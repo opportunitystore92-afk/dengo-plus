@@ -49,16 +49,13 @@ function AuthModal({ onClose }) {
 
 function ShareSheet({ video, onClose }) {
   const [copied, setCopied] = useState(false);
-
   const rawVideo = video || {};
   let videoId = rawVideo.id || rawVideo._id || '';
   if (!videoId && rawVideo.videoUrl) {
     videoId = String(rawVideo.videoUrl).split('/').pop().replace(/\.mp4$/i, '').trim();
   }
   const detailUrl = `https://dengo-plus.pages.dev/detail/${videoId}`;
-
   const ensureAuthenticated = () => true;
-
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(detailUrl);
@@ -68,16 +65,13 @@ function ShareSheet({ video, onClose }) {
       alert('Link: ' + detailUrl);
     }
   };
-
   const shareWhatsApp = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(`Olha esse video no Dengo: ${detailUrl}`)}`, '_blank');
   };
-
   const shareFacebook = () => {
     if (!ensureAuthenticated()) return;
     window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(detailUrl)}`, '_blank');
   };
-
   return (
     <div className="fixed inset-0 z-[100] flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose}></div>
@@ -118,7 +112,6 @@ function CommentSheet({ video, onClose, onRequireAuth, onCommentAdded }) {
   const emojis = ["😂","❤️","😍","😭","🥺","😊","🙏","👏","🔥","🤣","😅","😮","🥰","😎","💀","🤔","👍","🎉","✨","💯","🙌","😁","😆","🥲","🫶","❤️‍🔥","😳","🤩","😋","🤤"];
   const videoId = String(video?.id || video?.post_id || video?.key || video?.filename || video?.url || 'video');
   const [comments, setComments] = useState([]);
-
   useEffect(() => {
     let cancelado = false;
     setComments([]);
@@ -140,7 +133,6 @@ function CommentSheet({ video, onClose, onRequireAuth, onCommentAdded }) {
       .catch(() => {});
     return () => { cancelado = true; };
   }, [videoId]);
-
   const handleSend = async () => {
     const user = getLoggedUser();
     if (!user) { onRequireAuth(); return; }
@@ -184,7 +176,6 @@ function CommentSheet({ video, onClose, onRequireAuth, onCommentAdded }) {
       setEnviando(false);
     }
   };
-
   return (
     <div className="fixed inset-0 z-[100] flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose}></div>
@@ -228,25 +219,21 @@ function CommentSheet({ video, onClose, onRequireAuth, onCommentAdded }) {
   );
 }
 
-function FeedVideoItem({ video, onShare, onComment, isActive, shouldPreload, commentCount }) {
+function FeedVideoItem({ video, onShare, onComment, isActive, shouldPreload, commentCount, likeCount, liked, onToggleLike }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [muted, setMuted] = useState(false);
   const videoRef = useRef(null);
-
   const formatTime = (t) => {
     if (!t || isNaN(t)) return "0:00";
     const m = Math.floor(t / 60);
     const s = Math.floor(t % 60);
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
-
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
-
     if (isActive) {
       el.muted = muted;
       const playPromise = el.play();
@@ -264,7 +251,6 @@ function FeedVideoItem({ video, onShare, onComment, isActive, shouldPreload, com
       el.currentTime = 0;
     }
   }, [isActive, muted]);
-
   useEffect(() => {
     if (!isActive || !muted) return;
     const unlockAudio = () => {
@@ -277,7 +263,6 @@ function FeedVideoItem({ video, onShare, onComment, isActive, shouldPreload, com
     window.addEventListener('pointerdown', unlockAudio, { once: true, passive: true });
     return () => window.removeEventListener('pointerdown', unlockAudio);
   }, [isActive, muted]);
-
   const handleVideoClick = () => {
     const el = videoRef.current;
     if (!el) return;
@@ -289,7 +274,6 @@ function FeedVideoItem({ video, onShare, onComment, isActive, shouldPreload, com
       el.pause();
     }
   };
-
   return (
     <div className="relative flex h-[100dvh] w-full shrink-0 flex-col justify-between overflow-hidden bg-black snap-start md:max-w-[420px] md:mx-auto md:my-4 md:h-[calc(100dvh-32px)] md:rounded-2xl md:border md:border-zinc-800">
       <video
@@ -299,7 +283,7 @@ function FeedVideoItem({ video, onShare, onComment, isActive, shouldPreload, com
         onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
         onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
         onCanPlay={() => { if (isActive && videoRef.current?.paused) videoRef.current.play().catch(() => {}); }}
-        preload= "auto" 
+        preload= "auto"
         playsInline
         loop
         onClick={handleVideoClick}
@@ -313,7 +297,6 @@ function FeedVideoItem({ video, onShare, onComment, isActive, shouldPreload, com
           <span className="text-[11px] font-medium text-white drop-shadow">{formatTime(currentTime)} / {formatTime(duration)}</span>
         </div>
       </div>
-
       <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-4 pb-24 text-white">
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center font-bold text-white overflow-hidden">
@@ -324,9 +307,9 @@ function FeedVideoItem({ video, onShare, onComment, isActive, shouldPreload, com
         <p className="text-sm text-zinc-300 mt-1">{video.caption}</p>
       </div>
       <div className="absolute right-3 bottom-24 z-20 flex flex-col items-center gap-4">
-        <button onClick={() => setLiked(!liked)} className="flex flex-col items-center gap-1">
+        <button onClick={() => onToggleLike && onToggleLike(video)} className="flex flex-col items-center gap-1">
           <span className={`flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900/80 ${liked ? 'text-red-500' : 'text-white'}`}><Heart fill={liked ? 'currentColor' : 'none'} /></span>
-          <span className="text-xs">{(video.likes || 0) + (liked ? 1 : 0)}</span>
+          <span className="text-xs">{likeCount ?? video.likes ?? 0}</span>
         </button>
         <button onClick={() => onComment(video)} className="flex flex-col items-center gap-1">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900/80 text-white"><MessageSquare /></span>
@@ -358,15 +341,15 @@ export default function HomeFeed() {
   const [commentVideo, setCommentVideo] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [commentCounts, setCommentCounts] = useState({});
+  const [likeCounts, setLikeCounts] = useState({});
+  const [likedByMe, setLikedByMe] = useState({});
   const feedContainerRef = useRef(null);
-
   useEffect(() => {
     const user = getLoggedUser();
     if (user) {
       localStorage.removeItem('dengo_auth_prompted_once');
     }
   }, []);
-
   useEffect(() => {
     let cancelled = false;
     const loadPosts = async () => {
@@ -380,7 +363,8 @@ export default function HomeFeed() {
           const ordenados = [...posts].sort((a, b) => new Date(b.created_at || b.createdAt || 0) - new Date(a.created_at || a.createdAt || 0));
           setVideosList(ordenados);
           setFeedError('');
-          // Contagem real de comentários para cada vídeo, direto do Worker
+          const me = getLoggedUser();
+          const meuNome = me?.username || me?.name || '';
           Promise.all(ordenados.map(async (p) => {
             try {
               const r = await fetch(`${WORKER_URL}/comments?post_id=${encodeURIComponent(String(p.id))}`);
@@ -391,6 +375,20 @@ export default function HomeFeed() {
           })).then((pares) => {
             if (!cancelled) setCommentCounts(Object.fromEntries(pares));
           });
+          Promise.all(ordenados.map(async (p) => {
+            try {
+              const r = await fetch(`${WORKER_URL}/likes?post_id=${encodeURIComponent(String(p.id))}`);
+              const d = await r.json();
+              const count = typeof d?.count === 'number' ? d.count : (Array.isArray(d) ? d.length : 0);
+              const usernames = Array.isArray(d?.usernames) ? d.usernames : [];
+              return [String(p.id), count, meuNome && usernames.includes(meuNome)];
+            } catch (_) { return [String(p.id), 0, false]; }
+          })).then((pares) => {
+            if (!cancelled) {
+              setLikeCounts(Object.fromEntries(pares.map(([id, count]) => [id, count])));
+              setLikedByMe(Object.fromEntries(pares.map(([id, , liked]) => [id, !!liked])));
+            }
+          });
         }
       } catch {
         if (!cancelled) setFeedError('Não foi possível atualizar as publicações salvas.');
@@ -399,14 +397,36 @@ export default function HomeFeed() {
     loadPosts();
     return () => { cancelled = true; };
   }, []);
-
+  const handleToggleLike = async (video) => {
+    const user = getLoggedUser();
+    if (!user) { setIsAuthModalOpen(true); return; }
+    const pid = String(video.id);
+    const username = user.username || user.name || '';
+    if (!username) { setIsAuthModalOpen(true); return; }
+    const estavaCurtido = !!likedByMe[pid];
+    setLikedByMe((prev) => ({ ...prev, [pid]: !estavaCurtido }));
+    setLikeCounts((prev) => ({ ...prev, [pid]: Math.max(0, (prev[pid] ?? video.likes ?? 0) + (estavaCurtido ? -1 : 1)) }));
+    try {
+      const res = await fetch(`${WORKER_URL}/likes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: pid, username })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error('falhou');
+      setLikedByMe((prev) => ({ ...prev, [pid]: !!data.liked }));
+      if (typeof data.count === 'number') setLikeCounts((prev) => ({ ...prev, [pid]: data.count }));
+    } catch (_) {
+      setLikedByMe((prev) => ({ ...prev, [pid]: estavaCurtido }));
+      setLikeCounts((prev) => ({ ...prev, [pid]: Math.max(0, (prev[pid] ?? 0) + (estavaCurtido ? 1 : -1)) }));
+    }
+  };
   const handleNewVideo = (newVideoData) => {
     if (!newVideoData) return;
     setVideosList((current) => [normalizePost(newVideoData), ...current.filter((item) => item.id !== newVideoData.id)]);
     setFeedError('');
     setTimeout(() => { if (feedContainerRef.current) feedContainerRef.current.scrollTop = 0; }, 100);
   };
-
   const handleScroll = (e) => {
     const container = e.currentTarget;
     const height = container.clientHeight || window.innerHeight || 1;
@@ -415,7 +435,6 @@ export default function HomeFeed() {
       setActiveIndex(nextIndex);
     }
   };
-
   return (
     <div className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-black">
       <main ref={feedContainerRef} onScroll={handleScroll} className="no-scrollbar relative flex h-[100dvh] w-full flex-1 flex-col snap-y snap-mandatory overflow-y-auto overflow-x-hidden overscroll-contain">
@@ -430,6 +449,9 @@ export default function HomeFeed() {
               isActive={index === activeIndex}
               shouldPreload={index === activeIndex + 1}
               commentCount={commentCounts[String(video.id)]}
+              likeCount={likeCounts[String(video.id)]}
+              liked={!!likedByMe[String(video.id)]}
+              onToggleLike={handleToggleLike}
               onShare={setShareVideo}
               onComment={setCommentVideo}
               onRequireAuth={() => setIsAuthModalOpen(true)}
@@ -437,12 +459,10 @@ export default function HomeFeed() {
           ))
         )}
       </main>
-
       {showCreateModal && <CreateVideo onClose={() => setShowCreateModal(false)} onPublish={handleNewVideo} />}
       {shareVideo && <ShareSheet video={shareVideo} onClose={() => setShareVideo(null)} onRequireAuth={() => setIsAuthModalOpen(true)} />}
       {commentVideo && <CommentSheet video={commentVideo} onClose={() => setCommentVideo(null)} onRequireAuth={() => setIsAuthModalOpen(true)} onCommentAdded={(pid, totalExato) => setCommentCounts((prev) => ({ ...prev, [String(pid)]: totalExato != null ? totalExato : (prev[String(pid)] || 0) + 1 }))} />}
       {isAuthModalOpen && <AuthModal onClose={() => setIsAuthModalOpen(false)} />}
-
       <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between border-t border-gray-800 bg-black/95 px-6 py-2 text-white h-14">
         <button type="button" onClick={() => window.location.href = '/'} className="flex flex-col items-center gap-1 text-xs cursor-pointer"><Home className="h-6 w-6" /><span>Início</span></button>
         <button type="button" onClick={() => window.location.href = '/following'} className="flex flex-col items-center gap-1 text-xs text-gray-400 hover:text-white cursor-pointer"><Users className="h-6 w-6" /><span>Amigos</span></button>
