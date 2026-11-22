@@ -110,33 +110,23 @@ function ShareSheet({ video, onClose }) {
   );
 }
 
-function CommentSheet({ video, onClose, onRequireAuth }) {
+function CommentSheet({ video, onClose, onRequireAuth, onCommentAdded }) {
   const [comment, setComment] = useState('');
   const [showEmojis, setShowEmojis] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [erroComentario, setErroComentario] = useState('');
   const emojis = ["😂","❤️","😍","😭","🥺","😊","🙏","👏","🔥","🤣","😅","😮","🥰","😎","💀","🤔","👍","🎉","✨","💯","🙌","😁","😆","🥲","🫶","❤️‍🔥","😳","🤩","😋","🤤"];
-
-  // CORREÇÃO: mesmo id que o VideoDetail usa, senão o comentário vai para outro vídeo
   const videoId = String(video?.id || video?.post_id || video?.key || video?.filename || video?.url || 'video');
+  const [comments, setComments] = useState([]);
 
-  // Exemplos iniciais - só aparecem até o Worker devolver comentários reais
-  const comentariosExemplo = [
-    { id: 1, user: 'aparecida_franca', text: 'Muito bom! 👏👏', likes: 12, time: '2h', avatar: 'https://i.pravatar.cc/100?u=aparecida' },
-    { id: 2, user: 'gaucho_esquerda', text: 'Fato em 1 min sempre traz a verdade', likes: 45, time: '1h', avatar: 'https://i.pravatar.cc/100?u=gaucho' },
-    { id: 3, user: 'laides_alves', text: 'Compartilhei no grupo da família', likes: 8, time: '30m', avatar: 'https://i.pravatar.cc/100?u=laides' },
-  ];
-  const [comments, setComments] = useState(comentariosExemplo);
-
-  // CORREÇÃO: busca os comentários salvos no Worker ao abrir - antes não buscava nada
   useEffect(() => {
     let cancelado = false;
-    setComments(comentariosExemplo);
+    setComments([]);
     fetch(`${WORKER_URL}/comments?post_id=${encodeURIComponent(videoId)}`)
       .then(r => r.json())
       .then(data => {
         const lista = Array.isArray(data) ? data : data?.comments;
-        if (!cancelado && Array.isArray(lista) && lista.length > 0) {
+        if (!cancelado && Array.isArray(lista)) {
           setComments(lista.map((c, i) => ({
             id: c.id || `${videoId}-${i}`,
             user: c.username || c.user || 'eu',
@@ -149,10 +139,8 @@ function CommentSheet({ video, onClose, onRequireAuth }) {
       })
       .catch(() => {});
     return () => { cancelado = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId]);
 
-  // CORREÇÃO: salva no Worker e recarrega do Worker - antes só fazia setComments na tela
   const handleSend = async () => {
     const user = getLoggedUser();
     if (!user) { onRequireAuth(); return; }
@@ -171,22 +159,23 @@ function CommentSheet({ video, onClose, onRequireAuth }) {
       if (!res.ok || (data.success === false)) {
         throw new Error(data.error || 'não enviou');
       }
-      // Recarrega do Worker para provar que ficou salvo
       const r2 = await fetch(`${WORKER_URL}/comments?post_id=${encodeURIComponent(videoId)}`);
       const lista2 = await r2.json().catch(() => null);
       const lista = Array.isArray(lista2) ? lista2 : lista2?.comments;
       if (Array.isArray(lista) && lista.length > 0) {
-        setComments(lista.map((c, i) => ({
+        const formatados = lista.map((c, i) => ({
           id: c.id || `${videoId}-${i}`,
           user: c.username || c.user || 'eu',
           text: c.text || '',
           likes: c.likes || 0,
           time: c.time || 'agora',
           avatar: c.avatar || `https://i.pravatar.cc/100?u=${encodeURIComponent(c.username || c.user || 'eu')}`,
-        })));
+        }));
+        setComments(formatados);
+        if (onCommentAdded) onCommentAdded(videoId, formatados.length);
       } else {
-        // Fallback: se o Worker não devolveu a lista, mostra na tela mesmo assim
         setComments((prev) => [{ id: Date.now(), user: user.username || user.name || 'meu_perfil', text: texto, likes: 0, time: 'agora', avatar: user.avatar || '/default-avatar.png' }, ...prev]);
+        if (onCommentAdded) onCommentAdded(videoId, null);
       }
     } catch (e) {
       setErroComentario('Não conseguiu salvar. Tenta de novo.');
@@ -205,7 +194,9 @@ function CommentSheet({ video, onClose, onRequireAuth }) {
         </div>
         {erroComentario && <div className="mx-4 mt-3 rounded-lg bg-red-500/20 px-3 py-2 text-center text-xs text-red-300">{erroComentario}</div>}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 no-scrollbar">
-          {comments.map((c) => (
+          {comments.length === 0 ? (
+            <div className="py-10 text-center text-sm text-zinc-500">Nenhum comentário ainda. Sê o primeiro!</div>
+          ) : comments.map((c) => (
             <div key={c.id} className="flex gap-3">
               <img src={c.avatar} className="h-8 w-8 rounded-full mt-1" />
               <div className="flex-1">
@@ -237,7 +228,7 @@ function CommentSheet({ video, onClose, onRequireAuth }) {
   );
 }
 
-function FeedVideoItem({ video, onShare, onComment, isActive, shouldPreload }) {
+function FeedVideoItem({ video, onShare, onComment, isActive, shouldPreload, commentCount }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [liked, setLiked] = useState(false);
@@ -339,7 +330,7 @@ function FeedVideoItem({ video, onShare, onComment, isActive, shouldPreload }) {
         </button>
         <button onClick={() => onComment(video)} className="flex flex-col items-center gap-1">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900/80 text-white"><MessageSquare /></span>
-          <span className="text-xs">{video.comments || 0}</span>
+          <span className="text-xs">{commentCount ?? video.comments ?? 0}</span>
         </button>
         <button onClick={() => setSaved(!saved)} className="flex flex-col items-center gap-1">
           <span className={`flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900/80 ${saved ? 'text-yellow-400' : 'text-white'}`}><Bookmark fill={saved ? 'currentColor' : 'none'} /></span>
@@ -366,6 +357,7 @@ export default function HomeFeed() {
   const [shareVideo, setShareVideo] = useState(null);
   const [commentVideo, setCommentVideo] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [commentCounts, setCommentCounts] = useState({});
   const feedContainerRef = useRef(null);
 
   useEffect(() => {
@@ -385,8 +377,20 @@ export default function HomeFeed() {
         if (!Array.isArray(data)) throw new Error('Resposta inválida.');
         if (!cancelled) {
           const posts = data.map(normalizePost).filter((post) => post.videoUrl);
-          setVideosList([...posts].sort((a, b) => new Date(b.created_at || b.createdAt || 0) - new Date(a.created_at || a.createdAt || 0)));
+          const ordenados = [...posts].sort((a, b) => new Date(b.created_at || b.createdAt || 0) - new Date(a.created_at || a.createdAt || 0));
+          setVideosList(ordenados);
           setFeedError('');
+          // Contagem real de comentários para cada vídeo, direto do Worker
+          Promise.all(ordenados.map(async (p) => {
+            try {
+              const r = await fetch(`${WORKER_URL}/comments?post_id=${encodeURIComponent(String(p.id))}`);
+              const lista = await r.json();
+              const arr = Array.isArray(lista) ? lista : lista?.comments;
+              return [String(p.id), Array.isArray(arr) ? arr.length : 0];
+            } catch (_) { return [String(p.id), 0]; }
+          })).then((pares) => {
+            if (!cancelled) setCommentCounts(Object.fromEntries(pares));
+          });
         }
       } catch {
         if (!cancelled) setFeedError('Não foi possível atualizar as publicações salvas.');
@@ -425,6 +429,7 @@ export default function HomeFeed() {
               video={video}
               isActive={index === activeIndex}
               shouldPreload={index === activeIndex + 1}
+              commentCount={commentCounts[String(video.id)]}
               onShare={setShareVideo}
               onComment={setCommentVideo}
               onRequireAuth={() => setIsAuthModalOpen(true)}
@@ -435,7 +440,7 @@ export default function HomeFeed() {
 
       {showCreateModal && <CreateVideo onClose={() => setShowCreateModal(false)} onPublish={handleNewVideo} />}
       {shareVideo && <ShareSheet video={shareVideo} onClose={() => setShareVideo(null)} onRequireAuth={() => setIsAuthModalOpen(true)} />}
-      {commentVideo && <CommentSheet video={commentVideo} onClose={() => setCommentVideo(null)} onRequireAuth={() => setIsAuthModalOpen(true)} />}
+      {commentVideo && <CommentSheet video={commentVideo} onClose={() => setCommentVideo(null)} onRequireAuth={() => setIsAuthModalOpen(true)} onCommentAdded={(pid, totalExato) => setCommentCounts((prev) => ({ ...prev, [String(pid)]: totalExato != null ? totalExato : (prev[String(pid)] || 0) + 1 }))} />}
       {isAuthModalOpen && <AuthModal onClose={() => setIsAuthModalOpen(false)} />}
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between border-t border-gray-800 bg-black/95 px-6 py-2 text-white h-14">
