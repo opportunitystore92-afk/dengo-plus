@@ -20,7 +20,14 @@ export default function DetailFeed({ id }) {
       .then((res) => res.json())
       .then((data) => {
         if (cancelado) return;
-        setVideo(data);
+        // CORREÇÃO: a API não devolve id, então forçamos o id da URL, que nunca muda
+        // Antes ele usava video.url como id, e o url muda a cada refresh - por isso o comentário sumia
+        const videoFinal = {
+          ...(Array.isArray(data) ? data[0] : data),
+          id: id,
+          post_id: id,
+        };
+        setVideo(videoFinal);
         setLoading(false);
       })
       .catch(() => {
