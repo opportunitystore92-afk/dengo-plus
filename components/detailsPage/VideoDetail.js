@@ -23,6 +23,18 @@ export default function VideoDetail({ video, onInteract }) {
     const comentariosSalvos = JSON.parse(localStorage.getItem('dengo_comentarios_' + videoId) || '[]');
     setListaComentarios(comentariosSalvos);
 
+    // CORREÇÃO: busca no Worker com o nome certo: post_id
+    // O Worker devolve direto uma lista [...]
+    fetch(`https://dengo-upload-worker.dnctraderoperation.workers.dev/comments?post_id=${encodeURIComponent(videoId)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setListaComentarios(data);
+          localStorage.setItem('dengo_comentarios_' + videoId, JSON.stringify(data));
+        }
+      })
+      .catch(() => {});
+
     const curtidasSalvas = JSON.parse(localStorage.getItem('dengo_curtidas_' + videoId) || '[]');
     setCurtidas(curtidasSalvas.length);
     setCurtiu(curtidasSalvas.includes('eu'));
@@ -74,13 +86,35 @@ export default function VideoDetail({ video, onInteract }) {
     }
   }
 
-  function enviarComentario() {
+  // CORREÇÃO: envia com os nomes que o Worker espera: post_id, username, text
+  async function enviarComentario() {
     if (!comentario.trim()) return;
-    const novo = [...listaComentarios, comentario.trim()];
-    setListaComentarios(novo);
-    localStorage.setItem('dengo_comentarios_' + videoId, JSON.stringify(novo));
+    const texto = comentario.trim();
+    const username = localStorage.getItem('dengo_username') || video?.username || 'eu';
     setComentario('');
-    mostrarAviso('Comentário enviado');
+
+    try {
+      const res = await fetch(`https://dengo-upload-worker.dnctraderoperation.workers.dev/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: videoId, username, text: texto })
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Recarrega do servidor para aparecer para todo mundo
+        const r2 = await fetch(`https://dengo-upload-worker.dnctraderoperation.workers.dev/comments?post_id=${encodeURIComponent(videoId)}`);
+        const lista = await r2.json();
+        if (Array.isArray(lista)) {
+          setListaComentarios(lista);
+          localStorage.setItem('dengo_comentarios_' + videoId, JSON.stringify(lista));
+        }
+        mostrarAviso('Comentário enviado');
+      } else {
+        mostrarAviso('Erro: ' + (data.error || 'não enviou'));
+      }
+    } catch (e) {
+      mostrarAviso('Erro de rede');
+    }
   }
 
   async function compartilhar() {
@@ -176,7 +210,7 @@ export default function VideoDetail({ video, onInteract }) {
         {mostrarComentarios && (
           <div style={{ marginTop: '12px' }}>
             <h4>Comentários ({listaComentarios.length})</h4>
-            {listaComentarios.map((c, i) => <p key={i}>💬 {c}</p>)}
+            {listaComentarios.map((c, i) => <p key={c.id || i}>💬 {typeof c === 'string' ? c : `${c.username ? c.username + ': ' : ''}${c.text || ''}`}</p>)}
             <div style={{ display: 'flex', gap: '8px' }}>
               <input value={comentario} onChange={(e) => setComentario(e.target.value)} placeholder="Escreve um comentário..." style={{ flex: 1, padding: '10px', borderRadius: '20px', border: '1px solid #ccc' }} />
               <button onClick={enviarComentario} style={{ padding: '10px 16px', borderRadius: '20px', border: 'none', background: '#fe2c55', color: '#fff', cursor: 'pointer' }}>Enviar</button>

@@ -8,7 +8,6 @@ function getVideoMimeType(url = '') {
   return 'video/mp4'
 }
 
-// Som destravado uma vez, vale pra todos os vídeos
 let somDestravadoGlobal = false
 
 export default function Post({ post, isCreating }) {
@@ -17,83 +16,74 @@ export default function Post({ post, isCreating }) {
   const [isVisible, setIsVisible] = useState(false)
   const [isMuted, setIsMuted] = useState(!somDestravadoGlobal)
 
-  // Destrava o som no primeiro toque / rolar - vale pra todos
+  // Destrava o som no primeiro toque - vale pra todos
   useEffect(() => {
     const destravarSom = () => {
       somDestravadoGlobal = true
       setIsMuted(false)
-      if (videoRef.current) videoRef.current.muted = false
       window.dispatchEvent(new Event('dengo-som-ligado'))
     }
-
-    const ouvirDestrave = () => {
-      setIsMuted(false)
-      if (videoRef.current) videoRef.current.muted = false
-    }
+    const ouvirDestrave = () => setIsMuted(false)
 
     window.addEventListener('touchstart', destravarSom, { once: true })
     window.addEventListener('click', destravarSom, { once: true })
-    window.addEventListener('scroll', destravarSom, { once: true })
     window.addEventListener('dengo-som-ligado', ouvirDestrave)
-
     return () => {
       window.removeEventListener('touchstart', destravarSom)
       window.removeEventListener('click', destravarSom)
-      window.removeEventListener('scroll', destravarSom)
       window.removeEventListener('dengo-som-ligado', ouvirDestrave)
     }
   }, [])
 
-  // Se já destravou, garante que esse vídeo novo já entra com som
-  useEffect(() => {
-    if (somDestravadoGlobal && videoRef.current) {
-      videoRef.current.muted = false
-      setIsMuted(false)
-    }
-  }, [isVisible])
-
+  // Vê se esse vídeo tá na tela
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
-
     const observer = new IntersectionObserver(
       ([entry]) => {
         setIsVisible(entry.isIntersecting && entry.intersectionRatio >= 0.6)
       },
       { threshold: [0.6] }
     )
-
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
 
+  // Só toca o que tá visível, pausa o resto NA HORA
   useEffect(() => {
     const v = videoRef.current
     if (!v) return
 
-    if (isCreating || !isVisible) {
-      v.pause()
-      return
-    }
-
-    const startPlayback = () => {
-      v.muted = isMuted
-      v.play().catch(() => {
-        v.muted = true
-        v.play().catch(() => {})
-      })
-    }
-
-    if (v.readyState >= 2) {
-      startPlayback()
-    } else {
-      v.addEventListener('canplay', startPlayback, { once: true })
-      v.load()
-      return () => {
-        v.removeEventListener('canplay', startPlayback)
+    const pausarOutros = () => {
+      if (!isVisible) {
+        v.pause()
       }
     }
+    // Quando outro vídeo começa, esse pausa
+    window.addEventListener('dengo-video-tocando', pausarOutros)
+
+    if (isCreating || !isVisible) {
+      v.pause()
+      return () => window.removeEventListener('dengo-video-tocando', pausarOutros)
+    }
+
+    v.muted = isMuted
+    // Avisa os outros pra calarem
+    window.dispatchEvent(new Event('dengo-video-tocando'))
+    v.play().catch(() => {
+      v.muted = true
+      v.play().catch(() => {})
+    })
+
+    return () => window.removeEventListener('dengo-video-tocando', pausarOutros)
   }, [isCreating, isVisible, isMuted])
+
+  // Quando sai da tela, garante que parou
+  useEffect(() => {
+    return () => {
+      if (videoRef.current) videoRef.current.pause()
+    }
+  }, [])
 
   return (
     <div
@@ -112,10 +102,8 @@ export default function Post({ post, isCreating }) {
         <source src={post.video_url} type={getVideoMimeType(post.video_url)} />
       </video>
 
-      {/* Sombra de baixo para o texto ler bem */}
       <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
 
-      {/* Texto por cima do vídeo */}
       <div className="absolute bottom-6 left-4 right-16 text-white text-sm z-10">
         <p className="font-bold text-[16px] drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">@{post.username || 'utilizador'}</p>
         <p className="mt-1 leading-snug drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">{post.caption}</p>
