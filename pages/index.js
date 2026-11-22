@@ -307,24 +307,24 @@ function FeedVideoItem({ video, index, onShare, onComment, isActive, shouldPrelo
       </div>
       <div className="absolute right-3 bottom-24 z-20 flex flex-col items-center gap-4">
         <button onClick={() => onToggleLike && onToggleLike(video)} className="flex flex-col items-center gap-1">
-          <span className={`flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900/80 ${liked ? 'text-red-500' : 'text-white'}`}><Heart fill={liked ? 'currentColor' : 'none'} /></span>
-          <span className="text-xs">{likeCount ?? video.likes ?? 0}</span>
+          <span className={`flex h-12 w-12 items-center justify-center bg-transparent drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] ${liked ? 'text-red-500' : 'text-white'}`}><Heart fill={liked ? 'currentColor' : 'none'} /></span>
+          <span className="text-xs font-semibold text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.9)]">{likeCount ?? video.likes ?? 0}</span>
         </button>
         <button onClick={() => onComment(video)} className="flex flex-col items-center gap-1">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900/80 text-white"><MessageSquare /></span>
-          <span className="text-xs">{commentCount ?? video.comments ?? 0}</span>
+          <span className="flex h-12 w-12 items-center justify-center bg-transparent text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]"><MessageSquare /></span>
+          <span className="text-xs font-semibold text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.9)]">{commentCount ?? video.comments ?? 0}</span>
         </button>
         <button onClick={() => setSaved(!saved)} className="flex flex-col items-center gap-1">
-          <span className={`flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900/80 ${saved ? 'text-yellow-400' : 'text-white'}`}><Bookmark fill={saved ? 'currentColor' : 'none'} /></span>
-          <span className="text-xs">Salvar</span>
+          <span className={`flex h-12 w-12 items-center justify-center bg-transparent drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] ${saved ? 'text-yellow-400' : 'text-white'}`}><Bookmark fill={saved ? 'currentColor' : 'none'} /></span>
+          <span className="text-xs font-semibold text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.9)]">Salvar</span>
         </button>
         <button onClick={() => onShare(video)} className="flex flex-col items-center gap-1">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900/80 text-white"><Send /></span>
-          <span className="text-xs">Compartilhar</span>
+          <span className="flex h-12 w-12 items-center justify-center bg-transparent text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]"><Send /></span>
+          <span className="text-xs font-semibold text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.9)]">Compartilhar</span>
         </button>
         <button onClick={() => onShare(video)} className="flex flex-col items-center gap-1">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900/80 text-white"><Repeat /></span>
-          <span className="text-xs">Repost</span>
+          <span className="flex h-12 w-12 items-center justify-center bg-transparent text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]"><Repeat /></span>
+          <span className="text-xs font-semibold text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.9)]">Repost</span>
         </button>
       </div>
     </div>
