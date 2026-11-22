@@ -213,6 +213,7 @@ export default function VideoDetail({ video, onInteract }) {
           <p>Vídeo não encontrado</p>
         )}
         <h3>{titulo}</h3>
+        <p style={{ fontSize: '11px', color: '#999', wordBreak: 'break-all' }}>ID: {videoId}</p>
         {aviso && <p style={{ background: '#000', color: '#fff', padding: '8px 12px', borderRadius: '20px', display: 'inline-block' }}>{aviso}</p>}
         {mostrarComentarios && (
           <div style={{ marginTop: '12px' }}>
