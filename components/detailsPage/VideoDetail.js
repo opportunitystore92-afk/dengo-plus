@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 
 export default function VideoDetail({ video, onInteract }) {
   const videoRef = useRef(null);
+  const containerRef = useRef(null);
 
   const [curtiu, setCurtiu] = useState(false);
   const [curtidas, setCurtidas] = useState(0);
@@ -12,7 +13,8 @@ export default function VideoDetail({ video, onInteract }) {
   const [aviso, setAviso] = useState('');
   const [carregandoVideo, setCarregandoVideo] = useState(true);
 
-  const videoId = video?.id || 'video';
+  // CORREÇÃO: aceita id, post_id, key, filename - nunca mais cai para 'video' genérico
+  const videoId = video?.id || video?.post_id || video?.key || video?.filename || video?.url || 'video';
   const videoUrl = video?.url || video?.src || '';
   const titulo = video?.title || video?.titulo || 'Vídeo Dengo';
 
@@ -20,17 +22,12 @@ export default function VideoDetail({ video, onInteract }) {
     const salvos = JSON.parse(localStorage.getItem('dengo_salvos') || '[]');
     setSalvo(salvos.includes(videoId));
 
-    const comentariosSalvos = JSON.parse(localStorage.getItem('dengo_comentarios_' + videoId) || '[]');
-    setListaComentarios(comentariosSalvos);
-
-    // CORREÇÃO: busca no Worker com o nome certo: post_id
-    // O Worker devolve direto uma lista [...]
+    // CORREÇÃO: não mostra mais localStorage velho, busca direto no Worker
     fetch(`https://dengo-upload-worker.dnctraderoperation.workers.dev/comments?post_id=${encodeURIComponent(videoId)}`)
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data)) {
           setListaComentarios(data);
-          localStorage.setItem('dengo_comentarios_' + videoId, JSON.stringify(data));
         }
       })
       .catch(() => {});
@@ -40,8 +37,10 @@ export default function VideoDetail({ video, onInteract }) {
     setCurtiu(curtidasSalvas.includes('eu'));
   }, [videoId]);
 
+  // CORREÇÃO SOM: só toca o vídeo que está na tela, pausa todos os outros
   useEffect(() => {
     const el = videoRef.current;
+    const container = containerRef.current;
     setCarregandoVideo(true);
 
     if (el && videoUrl) {
@@ -50,21 +49,43 @@ export default function VideoDetail({ video, onInteract }) {
       el.load();
     }
 
+    // Quando outro vídeo começar a tocar, pausa este
+    const pausarSeOutroTocar = (e) => {
+      if (e.detail !== videoId && videoRef.current) {
+        videoRef.current.pause();
+      }
+    };
+    window.addEventListener('dengo-video-play', pausarSeOutroTocar);
+
+    // Quando sair da tela, pausa na hora - é isso que resolve do 8º pra frente
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting && videoRef.current) {
+            videoRef.current.pause();
+          }
+        });
+      },
+      { threshold: 0.3 }
+    );
+    if (container) observer.observe(container);
+
     const handleVisibilityChange = () => {
       if (document.hidden && videoRef.current) {
         videoRef.current.pause();
       }
     };
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      observer.disconnect();
+      window.removeEventListener('dengo-video-play', pausarSeOutroTocar);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (videoRef.current) {
         videoRef.current.pause();
       }
     };
-  }, [videoUrl]);
+  }, [videoUrl, videoId]);
 
   function mostrarAviso(texto) {
     setAviso(texto);
@@ -86,7 +107,6 @@ export default function VideoDetail({ video, onInteract }) {
     }
   }
 
-  // CORREÇÃO: envia com os nomes que o Worker espera: post_id, username, text
   async function enviarComentario() {
     if (!comentario.trim()) return;
     const texto = comentario.trim();
@@ -101,12 +121,10 @@ export default function VideoDetail({ video, onInteract }) {
       });
       const data = await res.json();
       if (data.success) {
-        // Recarrega do servidor para aparecer para todo mundo
         const r2 = await fetch(`https://dengo-upload-worker.dnctraderoperation.workers.dev/comments?post_id=${encodeURIComponent(videoId)}`);
         const lista = await r2.json();
         if (Array.isArray(lista)) {
           setListaComentarios(lista);
-          localStorage.setItem('dengo_comentarios_' + videoId, JSON.stringify(lista));
         }
         mostrarAviso('Comentário enviado');
       } else {
@@ -168,24 +186,12 @@ export default function VideoDetail({ video, onInteract }) {
   };
 
   return (
-    <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', justifyContent: 'center', padding: '16px' }}>
+    <div ref={containerRef} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', justifyContent: 'center', padding: '16px' }}>
       <div style={{ flex: 1, maxWidth: '520px', position: 'relative' }}>
         {videoUrl ? (
           <>
             {carregandoVideo && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '12px',
-                  left: '12px',
-                  zIndex: 5,
-                  background: 'rgba(0,0,0,0.75)',
-                  color: '#fff',
-                  padding: '6px 12px',
-                  borderRadius: '16px',
-                  fontSize: '13px',
-                }}
-              >
+              <div style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 5, background: 'rgba(0,0,0,0.75)', color: '#fff', padding: '6px 12px', borderRadius: '16px', fontSize: '13px' }}>
                 A carregar vídeo...
               </div>
             )}
@@ -193,9 +199,10 @@ export default function VideoDetail({ video, onInteract }) {
               ref={videoRef}
               src={videoUrl}
               poster={video?.thumbnail_url || video?.thumbnail || video?.cover || ''}
-              preload="auto"
+              preload="metadata"
               playsInline
               controls
+              onPlay={() => window.dispatchEvent(new CustomEvent('dengo-video-play', { detail: videoId }))}
               onCanPlay={() => setCarregandoVideo(false)}
               onPlaying={() => setCarregandoVideo(false)}
               onWaiting={() => setCarregandoVideo(true)}
