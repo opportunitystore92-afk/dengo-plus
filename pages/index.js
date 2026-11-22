@@ -219,7 +219,7 @@ function CommentSheet({ video, onClose, onRequireAuth, onCommentAdded }) {
   );
 }
 
-function FeedVideoItem({ video, onShare, onComment, isActive, shouldPreload, commentCount, likeCount, liked, onToggleLike }) {
+function FeedVideoItem({ video, index, onShare, onComment, isActive, shouldPreload, commentCount, likeCount, liked, onToggleLike }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [saved, setSaved] = useState(false);
@@ -231,24 +231,23 @@ function FeedVideoItem({ video, onShare, onComment, isActive, shouldPreload, com
     const s = Math.floor(t % 60);
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
+  // FIX SOM MISTURADO: só o vídeo ativo toca. Os outros param e ficam mudos.
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
     if (isActive) {
       el.muted = muted;
-      const playPromise = el.play();
-      if (playPromise && typeof playPromise.catch === 'function') {
-        playPromise.catch(() => {
-          if (!el.muted) {
-            el.muted = true;
-            setMuted(true);
-            el.play().catch(() => {});
-          }
+      const p = el.play();
+      if (p && typeof p.catch === 'function') {
+        p.catch(() => {
+          el.muted = true;
+          setMuted(true);
+          el.play().catch(() => {});
         });
       }
     } else {
       el.pause();
-      el.currentTime = 0;
+      el.muted = true;
     }
   }, [isActive, muted]);
   useEffect(() => {
@@ -275,7 +274,7 @@ function FeedVideoItem({ video, onShare, onComment, isActive, shouldPreload, com
     }
   };
   return (
-    <div className="relative flex h-[100dvh] w-full shrink-0 flex-col justify-between overflow-hidden bg-black snap-start md:max-w-[420px] md:mx-auto md:my-4 md:h-[calc(100dvh-32px)] md:rounded-2xl md:border md:border-zinc-800">
+    <div data-feed-index={index} className="relative flex h-[100dvh] w-full shrink-0 flex-col justify-between overflow-hidden bg-black snap-start md:max-w-[420px] md:mx-auto md:my-4 md:h-[calc(100dvh-32px)] md:rounded-2xl md:border md:border-zinc-800">
       <video
         ref={videoRef}
         src={video.videoUrl}
@@ -283,7 +282,7 @@ function FeedVideoItem({ video, onShare, onComment, isActive, shouldPreload, com
         onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
         onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
         onCanPlay={() => { if (isActive && videoRef.current?.paused) videoRef.current.play().catch(() => {}); }}
-        preload= "auto"
+        preload="auto"
         playsInline
         loop
         onClick={handleVideoClick}
@@ -350,6 +349,22 @@ export default function HomeFeed() {
       localStorage.removeItem('dengo_auth_prompted_once');
     }
   }, []);
+  // FIX SOM MISTURADO: o navegador diz qual vídeo está mesmo na tela (mais de 60% visível)
+  useEffect(() => {
+    const container = feedContainerRef.current;
+    if (!container || videosList.length === 0) return;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && entry.intersectionRatio > 0.6) {
+          const idx = Number(entry.target.getAttribute('data-feed-index'));
+          if (!isNaN(idx)) setActiveIndex(idx);
+        }
+      });
+    }, { root: container, threshold: [0.6] });
+    const items = container.querySelectorAll('[data-feed-index]');
+    items.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [videosList.length]);
   useEffect(() => {
     let cancelled = false;
     const loadPosts = async () => {
@@ -427,17 +442,9 @@ export default function HomeFeed() {
     setFeedError('');
     setTimeout(() => { if (feedContainerRef.current) feedContainerRef.current.scrollTop = 0; }, 100);
   };
-  const handleScroll = (e) => {
-    const container = e.currentTarget;
-    const height = container.clientHeight || window.innerHeight || 1;
-    const nextIndex = Math.max(0, Math.min(videosList.length - 1, Math.round(container.scrollTop / height)));
-    if (nextIndex !== activeIndex) {
-      setActiveIndex(nextIndex);
-    }
-  };
   return (
     <div className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-black">
-      <main ref={feedContainerRef} onScroll={handleScroll} className="no-scrollbar relative flex h-[100dvh] w-full flex-1 flex-col snap-y snap-mandatory overflow-y-auto overflow-x-hidden overscroll-contain">
+      <main ref={feedContainerRef} className="no-scrollbar relative flex h-[100dvh] w-full flex-1 flex-col snap-y snap-mandatory overflow-y-auto overflow-x-hidden overscroll-contain">
         {feedError && <div role="status" className="absolute left-3 right-3 top-3 z-20 rounded-lg bg-black/80 p-2 text-center text-xs text-white">{feedError}</div>}
         {videosList.length === 0 ? (
           <div className="flex h-full w-full items-center justify-center text-zinc-500 text-sm">Nenhum vídeo no feed. Clica no + para publicar!</div>
@@ -446,6 +453,7 @@ export default function HomeFeed() {
             <FeedVideoItem
               key={video.id}
               video={video}
+              index={index}
               isActive={index === activeIndex}
               shouldPreload={index === activeIndex + 1}
               commentCount={commentCounts[String(video.id)]}
