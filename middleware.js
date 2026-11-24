@@ -7,7 +7,6 @@ const FALLBACK_IMAGE = `${SITE}/logo.png`;
 const BOT_RE =
   /facebookexternalhit|facebot|whatsapp|twitterbot|telegrambot|linkedinbot|slackbot|discordbot|skypeuripreview|pinterest/i;
 const IMG_RE = /\.(jpe?g|png|webp|gif|avif)(\?.*)?$/i;
-const VIDEO_RE = /\.(mp4|webm|mov|m4v)(\?.*)?$/i;
 // avatar do usuário nunca pode virar capa do vídeo
 const SKIP_KEYS = /^(profile_image|avatar|profile_picture)$/i;
 
@@ -102,27 +101,17 @@ export async function middleware(request) {
   const imageRaw = findUrl(post, IMG_RE);
   const image = (imageRaw && abs(imageRaw)) || FALLBACK_IMAGE;
 
-  const videoRaw = findUrl(post, VIDEO_RE);
-  const video = videoRaw ? abs(videoRaw) : null;
-
-  const videoTags = video
-    ? `
-<meta property="og:video" content="${esc(video)}">
-<meta property="og:video:secure_url" content="${esc(video)}">
-<meta property="og:video:type" content="video/mp4">`
-    : '';
-
   return html(`<!doctype html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <title>${esc(title)}</title>
 <meta property="og:site_name" content="Dengo Plus">
-<meta property="og:type" content="${video ? 'video.other' : 'website'}">
+<meta property="og:type" content="website">
 <meta property="og:url" content="${esc(pageUrl)}">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}">
-<meta property="og:image" content="${esc(image)}">${videoTags}
+<meta property="og:image" content="${esc(image)}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(title)}">
 <meta name="twitter:description" content="${esc(description)}">
