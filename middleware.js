@@ -7,7 +7,7 @@ const FALLBACK_IMAGE = `${SITE}/logo.png`;
 const BOT_RE =
   /facebookexternalhit|facebot|whatsapp|twitterbot|telegrambot|linkedinbot|slackbot|discordbot|skypeuripreview|pinterest/i;
 const IMG_RE = /\.(jpe?g|png|webp|gif|avif)(\?.*)?$/i;
-// avatar do usuário nunca pode virar capa do vídeo
+const VID_RE = /\.(mp4|webm|mov|m4v)(\?.*)?$/i;
 const SKIP_KEYS = /^(profile_image|avatar|profile_picture)$/i;
 
 function esc(s) {
@@ -26,7 +26,6 @@ function abs(u) {
   }
 }
 
-// busca recursiva: devolve a primeira string que bate com o regex, em qualquer nível
 function findUrl(node, re, depth = 0) {
   if (node == null || depth > 6) return null;
   if (typeof node === 'string') return re.test(node) ? node : null;
@@ -47,7 +46,6 @@ function findUrl(node, re, depth = 0) {
   return null;
 }
 
-// ID completo OU ID curto (depois do último "-"). Sem fallback para o primeiro post.
 function matchPost(posts, rawId) {
   let id = rawId;
   try {
@@ -101,6 +99,16 @@ export async function middleware(request) {
   const imageRaw = findUrl(post, IMG_RE);
   const image = (imageRaw && abs(imageRaw)) || FALLBACK_IMAGE;
 
+  const videoRaw = findUrl(post, VID_RE);
+  const video = videoRaw && abs(videoRaw);
+  const videoType = video && /\.webm(\?.*)?$/i.test(video) ? 'video/webm' : 'video/mp4';
+
+  const videoTags = video
+    ? `<meta property="og:video" content="${esc(video)}">
+<meta property="og:video:secure_url" content="${esc(video)}">
+<meta property="og:video:type" content="${videoType}">`
+    : '';
+
   return html(`<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -112,6 +120,7 @@ export async function middleware(request) {
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:image" content="${esc(image)}">
+${videoTags}
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(title)}">
 <meta name="twitter:description" content="${esc(description)}">
