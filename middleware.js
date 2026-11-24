@@ -7,8 +7,8 @@ const FALLBACK_IMAGE = `${SITE}/logo.png`;
 const BOT_RE =
   /facebookexternalhit|facebot|whatsapp|twitterbot|telegrambot|linkedinbot|slackbot|discordbot|skypeuripreview|pinterest/i;
 const IMG_RE = /\.(jpe?g|png|webp|gif|avif)(\?.*)?$/i;
-const SKIP_KEYS = /^(profile_image|avatar|profile_picture)$/i;
-const THUMB_KEYS = ['ogImage', 'shareImage', 'bannerUrl', 'coverUrl', 'thumbnailUrl', 'thumbnail_url', 'thumb'];
+const SKIP_KEYS = /^(profile_image|avatar|profile_picture|banner|cover)$/i;
+const THUMB_KEYS = ['thumbnail', 'thumbnailUrl', 'thumbnail_url', 'poster', 'frame', 'thumb', 'image'];
 
 function esc(s) {
   return String(s ?? '')
@@ -38,7 +38,7 @@ function findUrl(node, re, depth = 0) {
   }
   if (typeof node === 'object') {
     for (const key of THUMB_KEYS) {
-      if (typeof node[key] === 'string' && node[key].trim()) {
+      if (typeof node[key] === 'string' && node[key].trim() && re.test(node[key].trim())) {
         return node[key].trim();
       }
     }
