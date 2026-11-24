@@ -32,6 +32,44 @@ function getLoggedUser() {
   return null;
 }
 
+function intercalarNovoPopular(posts, countsMap = {}) {
+  if (!Array.isArray(posts) || posts.length === 0) return [];
+  const getLikes = (p) => {
+    const id = String(p.id);
+    if (typeof countsMap[id] === 'number') return countsMap[id];
+    return Number(p.likes ?? p.likes_count ?? p.likeCount ?? p.liked_count ?? 0) || 0;
+  };
+  const getData = (p) => new Date(p.created_at || p.createdAt || 0).getTime() || 0;
+
+  const novos = [...posts].sort((a, b) => getData(b) - getData(a));
+  const populares = [...posts].sort((a, b) => getLikes(b) - getLikes(a));
+
+  const ordenados = [];
+  const jaUsados = new Set();
+  let i = 0;
+  let j = 0;
+
+  while (ordenados.length < posts.length) {
+    while (i < novos.length && jaUsados.has(novos[i].id)) i++;
+    if (i < novos.length) {
+      ordenados.push(novos[i]);
+      jaUsados.add(novos[i].id);
+      i++;
+    }
+    if (ordenados.length >= posts.length) break;
+
+    while (j < populares.length && jaUsados.has(populares[j].id)) j++;
+    if (j < populares.length) {
+      ordenados.push(populares[j]);
+      jaUsados.add(populares[j].id);
+      j++;
+    }
+    if (i >= novos.length && j >= populares.length) break;
+  }
+
+  return ordenados;
+}
+
 function AuthModal({ onClose }) {
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
@@ -235,33 +273,21 @@ function FeedVideoItem({ video, index, onShare, onComment, isActive, shouldPrelo
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
+
     if (isActive) {
-      el.muted = muted;
+      el.muted = false;
+      setMuted(false);
       const p = el.play();
       if (p && typeof p.catch === 'function') {
         p.catch(() => {
-          el.muted = true;
-          setMuted(true);
-          el.play().catch(() => {});
+          el.muted = false;
         });
       }
     } else {
       el.pause();
-      el.muted = true;
     }
-  }, [isActive, muted]);
-  useEffect(() => {
-    if (!isActive || !muted) return;
-    const unlockAudio = () => {
-      const el = videoRef.current;
-      if (!el) return;
-      el.muted = false;
-      setMuted(false);
-      el.play().catch(() => {});
-    };
-    window.addEventListener('pointerdown', unlockAudio, { once: true, passive: true });
-    return () => window.removeEventListener('pointerdown', unlockAudio);
-  }, [isActive, muted]);
+  }, [isActive]);
+
   const handleVideoClick = () => {
     const el = videoRef.current;
     if (!el) return;
@@ -343,28 +369,28 @@ export default function HomeFeed() {
   const [likeCounts, setLikeCounts] = useState({});
   const [likedByMe, setLikedByMe] = useState({});
   const feedContainerRef = useRef(null);
+  const ordemRef = useRef(null);
+  const ordemDefinidaRef = useRef(false);
+
   useEffect(() => {
     const user = getLoggedUser();
     if (user) {
       localStorage.removeItem('dengo_auth_prompted_once');
     }
   }, []);
-  // FIX SOM MISTURADO: o navegador diz qual vídeo está mesmo na tela (mais de 60% visível)
+
+  // FIX SOM MISTURADO: calcula o vídeo ativo pelo scroll
   useEffect(() => {
     const container = feedContainerRef.current;
-    if (!container || videosList.length === 0) return;
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting && entry.intersectionRatio > 0.6) {
-          const idx = Number(entry.target.getAttribute('data-feed-index'));
-          if (!isNaN(idx)) setActiveIndex(idx);
-        }
-      });
-    }, { root: container, threshold: [0.6] });
-    const items = container.querySelectorAll('[data-feed-index]');
-    items.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, [videosList.length]);
+    if (!container) return;
+    const onScroll = () => {
+      const idx = Math.round(container.scrollTop / container.clientHeight);
+      setActiveIndex(idx);
+    };
+    container.addEventListener('scroll', onScroll, { passive: true });
+    return () => container.removeEventListener('scroll', onScroll);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const loadPosts = async () => {
@@ -375,12 +401,16 @@ export default function HomeFeed() {
         if (!Array.isArray(data)) throw new Error('Resposta inválida.');
         if (!cancelled) {
           const posts = data.map(normalizePost).filter((post) => post.videoUrl);
-          const ordenados = [...posts].sort((a, b) => new Date(b.created_at || b.createdAt || 0) - new Date(a.created_at || a.createdAt || 0));
-          setVideosList(ordenados);
+          const inicial = intercalarNovoPopular(posts);
+          setVideosList(inicial);
+          ordemRef.current = inicial;
+          ordemDefinidaRef.current = false;
           setFeedError('');
+
           const me = getLoggedUser();
           const meuNome = me?.username || me?.name || '';
-          Promise.all(ordenados.map(async (p) => {
+
+          Promise.all(posts.map(async (p) => {
             try {
               const r = await fetch(`${WORKER_URL}/comments?post_id=${encodeURIComponent(String(p.id))}`);
               const lista = await r.json();
@@ -390,7 +420,8 @@ export default function HomeFeed() {
           })).then((pares) => {
             if (!cancelled) setCommentCounts(Object.fromEntries(pares));
           });
-          Promise.all(ordenados.map(async (p) => {
+
+          Promise.all(posts.map(async (p) => {
             try {
               const r = await fetch(`${WORKER_URL}/likes?post_id=${encodeURIComponent(String(p.id))}`);
               const d = await r.json();
@@ -400,8 +431,15 @@ export default function HomeFeed() {
             } catch (_) { return [String(p.id), 0, false]; }
           })).then((pares) => {
             if (!cancelled) {
-              setLikeCounts(Object.fromEntries(pares.map(([id, count]) => [id, count])));
+              const mapaLikes = Object.fromEntries(pares.map(([id, count]) => [id, count]));
+              setLikeCounts(mapaLikes);
               setLikedByMe(Object.fromEntries(pares.map(([id, , liked]) => [id, !!liked])));
+              if (!ordemDefinidaRef.current) {
+                const ordenadoComLikes = intercalarNovoPopular(posts, mapaLikes);
+                ordemRef.current = ordenadoComLikes;
+                ordemDefinidaRef.current = true;
+                setVideosList(ordenadoComLikes);
+              }
             }
           });
         }
@@ -412,6 +450,7 @@ export default function HomeFeed() {
     loadPosts();
     return () => { cancelled = true; };
   }, []);
+
   const handleToggleLike = async (video) => {
     const user = getLoggedUser();
     if (!user) { setIsAuthModalOpen(true); return; }
@@ -436,20 +475,31 @@ export default function HomeFeed() {
       setLikeCounts((prev) => ({ ...prev, [pid]: Math.max(0, (prev[pid] ?? 0) + (estavaCurtido ? 1 : -1)) }));
     }
   };
+
   const handleNewVideo = (newVideoData) => {
     if (!newVideoData) return;
-    setVideosList((current) => [normalizePost(newVideoData), ...current.filter((item) => item.id !== newVideoData.id)]);
+    const normalizado = normalizePost(newVideoData);
+    setVideosList((current) => {
+      const atualizada = [normalizado, ...current.filter((item) => item.id !== normalizado.id)];
+      ordemRef.current = atualizada;
+      ordemDefinidaRef.current = true;
+      return atualizada;
+    });
+    setActiveIndex(0);
     setFeedError('');
     setTimeout(() => { if (feedContainerRef.current) feedContainerRef.current.scrollTop = 0; }, 100);
   };
+
+  const videosParaMostrar = ordemRef.current || videosList;
+
   return (
     <div className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-black">
       <main ref={feedContainerRef} className="no-scrollbar relative flex h-[100dvh] w-full flex-1 flex-col snap-y snap-mandatory overflow-y-auto overflow-x-hidden overscroll-contain">
         {feedError && <div role="status" className="absolute left-3 right-3 top-3 z-20 rounded-lg bg-black/80 p-2 text-center text-xs text-white">{feedError}</div>}
-        {videosList.length === 0 ? (
+        {videosParaMostrar.length === 0 ? (
           <div className="flex h-full w-full items-center justify-center text-zinc-500 text-sm">Nenhum vídeo no feed. Clica no + para publicar!</div>
         ) : (
-          videosList.map((video, index) => (
+          videosParaMostrar.map((video, index) => (
             <FeedVideoItem
               key={video.id}
               video={video}
