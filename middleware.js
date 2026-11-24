@@ -7,8 +7,8 @@ const FALLBACK_IMAGE = `${SITE}/logo.png`;
 const BOT_RE =
   /facebookexternalhit|facebot|whatsapp|twitterbot|telegrambot|linkedinbot|slackbot|discordbot|skypeuripreview|pinterest/i;
 const IMG_RE = /\.(jpe?g|png|webp|gif|avif)(\?.*)?$/i;
-const VID_RE = /\.(mp4|webm|mov|m4v)(\?.*)?$/i;
 const SKIP_KEYS = /^(profile_image|avatar|profile_picture)$/i;
+const THUMB_KEYS = ['ogImage', 'shareImage', 'bannerUrl', 'coverUrl', 'thumbnailUrl', 'thumbnail_url', 'thumb'];
 
 function esc(s) {
   return String(s ?? '')
@@ -37,6 +37,11 @@ function findUrl(node, re, depth = 0) {
     return null;
   }
   if (typeof node === 'object') {
+    for (const key of THUMB_KEYS) {
+      if (typeof node[key] === 'string' && node[key].trim()) {
+        return node[key].trim();
+      }
+    }
     for (const [k, v] of Object.entries(node)) {
       if (SKIP_KEYS.test(k)) continue;
       const r = findUrl(v, re, depth + 1);
@@ -99,16 +104,6 @@ export async function middleware(request) {
   const imageRaw = findUrl(post, IMG_RE);
   const image = (imageRaw && abs(imageRaw)) || FALLBACK_IMAGE;
 
-  const videoRaw = findUrl(post, VID_RE);
-  const video = videoRaw && abs(videoRaw);
-  const videoType = video && /\.webm(\?.*)?$/i.test(video) ? 'video/webm' : 'video/mp4';
-
-  const videoTags = video
-    ? `<meta property="og:video" content="${esc(video)}">
-<meta property="og:video:secure_url" content="${esc(video)}">
-<meta property="og:video:type" content="${videoType}">`
-    : '';
-
   return html(`<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -120,7 +115,7 @@ export async function middleware(request) {
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:image" content="${esc(image)}">
-${videoTags}
+<meta property="og:image:alt" content="${esc(title)}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(title)}">
 <meta name="twitter:description" content="${esc(description)}">
